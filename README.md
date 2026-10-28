@@ -62,18 +62,30 @@ accepted answer; the participant interface explains this and displays that accep
 The initial maximum is `999999999999999999999999999999`; this is an editable setup value,
 not an official contest rule. The number of questions is the length of the saved question list.
 
-**Scoring is deliberately unconfigured.** Answers and distributions work, but the app says that
-ranking awaits organizer rules. `src/server/scoring.ts` defines the independent policy:
-`Scorer = (estimate: bigint, correct: bigint) => number | null`. Once rules are supplied, compile an
-organizer-owned TypeScript module to ESM JavaScript and set `SCORE_MODULE` in `.env` to its absolute
-path. It must export `score` with that signature. Finite scores are persisted when each question
-finalizes; standings sum stored scores, highest first. Missing submissions have no score. Null
-scores are unranked. Equal scores sort by nickname and participant ID for stable display; this
-is not an official tie-breaking rule. Keep the scoring module fixed throughout a contest.
+Scoring uses the organizer's per-question rule, implemented independently in
+`src/server/scoring.ts`:
 
-Do not enable a real contest's ranking until its score and tie policies have been agreed.
-The screen already implements the top-five reveal, animated podium and scrolling full standings
-for configured scores. No provisional points formula is silently applied.
+```text
+d_i = abs(ln(x_i / a))
+M = max(0.05, median(d_1, ..., d_N))
+S_i = Math.round(1000 / (1 + d_i / M))
+```
+
+Only valid confirmed submissions for that question contribute to the median. An even-sized
+field uses the average of its two middle errors. Exact answers receive 1000 points; all rounding
+uses JavaScript's half-up `Math.round`. For example, estimates `100`, `200`, `400` with correct
+answer `100` receive `1000`, `500`, `333` points. Each question has its own median.
+
+Points are calculated only after answer acceptance closes and stored with the finalized question.
+The server rebuilds finalized scores from confirmed answers on startup, without scoring the
+currently editable question. Standings sum per-question scores, highest first. Missing submissions
+remain unscored and are excluded from the median; no missing-answer penalty has been specified.
+Equal totals sort by nickname and participant ID for stable display; an official tie-breaking rule
+has not been specified.
+
+The participant view shows points for the completed question. The projector reveals the top five,
+then presents an animated final podium alongside a scrolling list of **all** participants,
+including unranked entries. Scoring works without extra modules or environment configuration.
 
 ## Synchronization protocol
 
@@ -161,9 +173,10 @@ pnpm audit --prod --audit-level=moderate
 ```
 
 Tests exercise duplicate IDs, delayed operations, equal-revision tabs, invalid input, deadlines,
-grace acceptance, pause/resume, automatic progression, scoring integration, process reopening,
+grace acceptance, pause/resume, automatic progression, median scoring, abrupt process termination,
 stale snapshots, valid edits followed by intermediate drafts, disconnected countdowns,
-browser-storage failure, account recovery, admin protection and a 300-client
+browser-storage failure, obsolete acknowledgment timeouts, staged projector reveals, account
+recovery, admin protection and a 300-client
 simultaneous Socket.IO burst. This loopback test does not establish capacity of a venue's Wi-Fi.
 Run a rehearsal with representative devices and the actual access point before the event.
 
@@ -173,6 +186,10 @@ No uncaught application errors or horizontal overflow were observed in these flo
 Also checked host re-login after server restart, recovery QR generation and final results.
 Follow-up browser checks confirmed that an offline valid edit survives clearing the field and
 closing/reopening its tab, while the empty draft remains intact; disconnected input locks at zero.
+A real server is terminated with `SIGKILL` immediately after acknowledging an answer; the test
+restarts it against the same SQLite file and verifies the answer, receipt, session and deadline.
+Browser checks also verified 1000/500/333-point results, personal points, and the final podium
+alongside all participants on desktop, with a stacked layout and no overflow on mobile.
 Reversing the revision comparison deliberately failed the out-of-order regression test; the
 original implementation was then restored and the full suite passed.
 

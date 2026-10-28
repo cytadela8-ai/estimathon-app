@@ -65,7 +65,6 @@ export interface Snapshot {
   correct: string | null;
   results: Result[];
   standings: Standing[];
-  scoringConfigured: boolean;
 }
 export interface Receipt {
   operationId: string;

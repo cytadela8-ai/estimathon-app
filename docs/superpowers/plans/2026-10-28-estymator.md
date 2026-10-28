@@ -9,7 +9,8 @@ Svelte clients persist edits before transmission and reconcile authoritative sna
 ## Constraints and decisions
 
 English code/documentation; Polish UI. No cloud services or runtime Internet dependencies.
-No final scoring formula: isolated score function returns null until configured.
+Per-question scoring uses logarithmic error, median normalization with a 0.05 floor,
+and Math.round(1000 / (1 + error / normalization)).
 Use strict acceptance by default; configurable 5-second lenient delivery window.
 Manual results by default; optional timed results advance the schedule.
 Positive integer strings preserve textual drafts; range configurable as decimal strings.
@@ -27,7 +28,7 @@ Revision and operation ID form a deterministic total order across tabs.
 
 - [x] Tooling: exact dependencies, strict TypeScript, oxlint/oxfmt, Vitest.
 - [x] Durable engine: `src/server/database.ts`, `contest.ts`, `answers.ts`;
-      protocol in `src/shared/protocol.ts`, score hook in `scoring.ts`.
+      protocol in `src/shared/protocol.ts`, batch scoring in `scoring.ts`.
       Verify out-of-order/duplicate operations, cutoff, pause/resume, restart and 300 answers.
 - [x] Transport: `src/server/app.ts`, `index.ts`; authenticated admin HTTP routes,
       participant recovery, Socket.IO snapshots and committed answer acknowledgments.
@@ -43,7 +44,7 @@ Implement directly in the authorized master workspace. No deployment or external
 
 Validation: 32 passing tests, including 300 concurrent Socket.IO clients; clean lint,
 strict type checks and production build. Browser lifecycle checks documented in README.md.
-Scoring policy and optional HTTPS/PWA remain organizer configuration, as specified.
+Optional HTTPS/PWA remain deployment choices. Scoring rules were subsequently supplied by the organizer.
 
 ## Reliability follow-up
 
@@ -54,3 +55,16 @@ Scoring policy and optional HTTPS/PWA remain organizer configuration, as specifi
 - [x] Browser-check offline edit/clear/close/reopen and disconnected deadline locking.
 
 Follow-up validation: 44 passing tests; clean lint, type checks and production build.
+
+## Organizer scoring and result completion
+
+- [x] Replace the unconfigured scoring hook with the supplied batch median/logarithmic formula.
+- [x] Test odd/even fields, the median floor, multiplicative symmetry, half-up rounding and range.
+- [x] Finalize each question from its latest confirmed submissions; sum persisted points.
+- [x] Rebuild finalized scores on restart while leaving active questions unscored.
+- [x] Remove obsolete scoring-module configuration and unconfigured UI states.
+- [x] Include unranked participants in final scrolling results alongside the podium.
+- [x] Check projector staging, reconnection timing, empty results and crash recovery.
+
+Final validation: 73 passing tests, clean lint/type checks/build and production dependency audit.
+Browser verification includes the supplied scoring formula and final desktop/mobile layouts.

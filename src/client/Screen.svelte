@@ -61,29 +61,43 @@
     {:else if phase === 'finished'}<div class="final-results">
         <div class="mini-label">WIELKI FINAŁ · ESTYMATOR</div>
         <h1>Najlepsze <em>wyczucie.</em></h1>
-        {#if ranked.length}<div class="podium">
-            {#each [1, 0, 2] as index}{@const person = ranked[index]}{#if person}<div
-                  class="podium-person"
-                  class:winner={index === 0}
-                  style={`--place:${index}`}
-                >
-                  <span class="medal">{index === 0 ? '✳' : '↗'}</span>
-                  <h2>{person.nickname}</h2>
-                  <p>{person.score?.toLocaleString('pl-PL')} pkt</p>
-                  <div class="podium-block">{index + 1}</div>
-                </div>{/if}{/each}
-          </div>
-          {#if elapsed > 6000}<div class="all-results">
-              <div class="scrolling-results">
-                {#each ranked as person, i}<div class="leader-row">
-                    <span>{i + 1}</span><strong>{person.nickname}</strong><span
-                      >{person.score?.toLocaleString('pl-PL')} pkt</span
+        <div class="final-stage" class:expanded={elapsed > 6000 && (s?.standings.length ?? 0) > 0}>
+          {#if ranked.length}<div class="podium">
+              {#each [1, 0, 2] as index}{@const person = ranked[index]}
+                {#if person}<div
+                    class="podium-person"
+                    class:winner={index === 0}
+                    style={`--place:${index}`}
+                  >
+                    <span class="medal">{index === 0 ? '✳' : '↗'}</span>
+                    <h2>{person.nickname}</h2>
+                    <p>{person.score?.toLocaleString('pl-PL')} pkt</p>
+                    <div class="podium-block">{index + 1}</div>
+                  </div>{/if}
+              {/each}
+            </div>{:else}<div>
+              <div class="orbit">✳</div>
+              <p>Dziękujemy wszystkim {s?.participantCount} uczestnikom!</p>
+              <p>Brak sklasyfikowanych wyników.</p>
+            </div>{/if}
+          {#if elapsed > 6000 && (s?.standings.length ?? 0) > 0}<div class="all-results">
+              <div
+                class="scrolling-results"
+                style={`--scroll-duration:${Math.max(20, (s?.standings.length ?? 0) * 2)}s`}
+              >
+                {#each s?.standings ?? [] as person, i}<div class="leader-row">
+                    <span>{person.score === null ? '—' : i + 1}</span><strong
+                      >{person.nickname}</strong
+                    >
+                    <span
+                      >{person.score === null
+                        ? 'Bez klasyfikacji'
+                        : `${person.score.toLocaleString('pl-PL')} pkt`}</span
                     >
                   </div>{/each}
               </div>
-            </div>{/if}{:else}<div class="orbit">✳</div>
-          <p>Dziękujemy wszystkim {s?.participantCount} uczestnikom!</p>
-          <p>Punktacja oczekuje na ustalenie zasad organizatora.</p>{/if}
+            </div>{/if}
+        </div>
       </div>
     {:else}<div class="screen-results">
         <div class="mini-label">PYTANIE {(s?.state.index ?? 0) + 1} · WYNIKI</div>
@@ -117,13 +131,13 @@
         </div>
         {#if elapsed > 7000}<section class="screen-leaderboard">
             <h2>Czołówka konkursu <span>Klasyfikacja łączna</span></h2>
-            {#if s?.scoringConfigured}<div class="top-list">
+            {#if ranked.length}<div class="top-list">
                 {#each ranked.slice(0, 5) as person, i}<div class="leader-row">
                     <span class="rank">{String(i + 1).padStart(2, '0')}</span><strong
                       >{person.nickname}</strong
                     ><span>{person.score?.toLocaleString('pl-PL')} pkt</span>
                   </div>{/each}
-              </div>{:else}<p>Punktacja oczekuje na ustalenie zasad przez organizatora.</p>{/if}
+              </div>{:else}<p>Brak sklasyfikowanych wyników.</p>{/if}
           </section>{/if}
       </div>{/if}
   </main>

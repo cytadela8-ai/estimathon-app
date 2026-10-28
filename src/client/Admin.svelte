@@ -250,10 +250,10 @@
             Po zamknięciu pytania ekran czeka na koniec okna przyjmowania odpowiedzi i ujawnia
             wyniki etapami.
           </p>
-          {#if !$client.snapshot?.scoringConfigured}<p>
-              Punktacja nie została skonfigurowana. Ranking pojawi się po dostarczeniu zasad
-              punktacji.
-            </p>{/if}
+          <p>
+            Punktacja: do 1000 pkt za pytanie. Błąd logarytmiczny jest porównywany z medianą błędów
+            przyjętych odpowiedzi.
+          </p>
         </aside>
       {:else if tab === 'questions' && config}<section class="card">
           <h2>Ustawienia konkursu</h2>

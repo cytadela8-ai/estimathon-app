@@ -18,6 +18,9 @@
   const editable = $derived(
     phase === 'active' && remainingMilliseconds(snapshot?.state, $now, $client.offset) > 0,
   );
+  const ownResult = $derived(
+    snapshot?.results.find((result) => result.participantId === $client.session?.participant.id),
+  );
   const invalidDraft = $derived(!!$client.text && !isPositiveInteger($client.text));
   async function join(recover = false) {
     busy = true;
@@ -231,9 +234,14 @@
           </h1>
           <div class="correct-value">{snapshot?.correct}</div>
           <p>Twoja przyjęta odpowiedź: <strong>{$client.confirmed ?? 'Brak odpowiedzi'}</strong></p>
-          {#if !snapshot?.scoringConfigured}<p>
-              Punktacja oczekuje na ustalenie zasad przez organizatora.
-            </p>{/if}<a class="button" href="/screen">Zobacz wyniki ↗</a>
+          <p>
+            Punkty za pytanie: <strong
+              >{ownResult?.score === null || ownResult?.score === undefined
+                ? 'Brak klasyfikacji'
+                : `${ownResult.score} / 1000`}</strong
+            >
+          </p>
+          <a class="button" href="/screen">Zobacz wyniki ↗</a>
         </section>
       {/if}
     {/if}

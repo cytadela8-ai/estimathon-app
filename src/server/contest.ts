@@ -13,8 +13,7 @@ import type {
   Standing,
 } from '#est-shared/protocol';
 import { validNumber } from '#est-shared/protocol';
-import type { Scorer } from '#est-server/scoring';
-import { unconfiguredScorer } from '#est-server/scoring';
+import { scoreQuestion } from '#est-server/scoring';
 interface Stored {
   config: Config;
   questions: Question[];
@@ -29,10 +28,7 @@ const defaults: Config = {
 };
 export class Contest {
   data: Stored;
-  constructor(
-    readonly db: Database.Database,
-    readonly score: Scorer = unconfiguredScorer,
-  ) {
+  constructor(readonly db: Database.Database) {
     const row = db.prepare('SELECT data FROM contest WHERE id=1').get() as
       | { data: string }
       | undefined;
@@ -53,6 +49,7 @@ export class Contest {
           },
         };
     this.persist();
+    this.rebuildScores();
   }
   persist(): void {
     this.db.prepare('INSERT OR REPLACE INTO contest VALUES(1,?)').run(JSON.stringify(this.data));
@@ -177,20 +174,25 @@ export class Contest {
     this.begin(this.state.index + 1, now);
     this.state.version++;
   }
-  private finalize(): void {
-    const question = this.question;
+  private finalize(question = this.question): void {
     if (!question) return;
     const answers = this.db
       .prepare('SELECT participantId,text FROM answers WHERE questionId=?')
       .all(question.id) as { participantId: string; text: string }[];
     const save = this.db.prepare('INSERT OR REPLACE INTO scores VALUES(?,?,?)');
-    for (const answer of answers) {
-      const points = this.score(BigInt(answer.text), BigInt(question.correct));
-      if (points !== null && !Number.isFinite(points))
-        throw new Error('Scorer returned a non-finite score');
-      save.run(answer.participantId, question.id, points);
+    for (const result of scoreQuestion(answers, question.correct)) {
+      save.run(result.participantId, question.id, result.score);
     }
   }
+  private rebuildScores(): void {
+    const currentFinalized = ['results', 'finished'].includes(this.state.phase);
+    const count = Math.max(0, this.state.index + Number(currentFinalized));
+    this.db.transaction(() => {
+      this.db.prepare('DELETE FROM scores').run();
+      for (const question of this.data.questions.slice(0, count)) this.finalize(question);
+    })();
+  }
+
   snapshot(now = Date.now()): Snapshot {
     this.tick(now);
     const id = this.question?.id ?? '';
@@ -207,7 +209,6 @@ export class Contest {
       totalQuestions: this.data.questions.length,
       participantCount: participants.n,
       answerCount: answers.n,
-      scoringConfigured: this.score !== unconfiguredScorer,
     };
   }
   private presentation(

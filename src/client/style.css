@@ -753,6 +753,12 @@ footer a {
 .final-results > .mini-label {
   justify-content: center;
 }
+.final-stage.expanded {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 40px;
+}
 .podium {
   display: flex;
   align-items: end;
@@ -760,6 +766,7 @@ footer a {
   gap: 16px;
   margin: 30px auto 0;
   max-width: 670px;
+  width: 100%;
 }
 .podium-person {
   flex: 1;
@@ -793,14 +800,17 @@ footer a {
   color: #183e2a;
 }
 .all-results {
+  --results-window: 300px;
   max-width: 500px;
-  height: 180px;
+  width: 100%;
+  height: var(--results-window);
+  animation: reveal 0.7s both;
   overflow: hidden;
   margin: 20px auto 0;
   mask-image: linear-gradient(transparent, #000 15%, #000 85%, transparent);
 }
 .scrolling-results {
-  animation: scroll-results 35s linear infinite;
+  animation: scroll-results var(--scroll-duration, 35s) linear infinite;
   animation-delay: 3s;
 }
 .admin-main {
@@ -1001,7 +1011,7 @@ td .text-button {
   }
   90%,
   100% {
-    transform: translateY(calc(-100% + 160px));
+    transform: translateY(min(0px, calc(-100% + var(--results-window))));
   }
 }
 @media (min-width: 1500px) {
@@ -1175,6 +1185,10 @@ td .text-button {
   }
   .podium-person p {
     font-size: 11px;
+  }
+  .final-stage.expanded {
+    grid-template-columns: 1fr;
+    gap: 20px;
   }
   .podium {
     gap: 8px;

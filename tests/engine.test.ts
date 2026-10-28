@@ -158,13 +158,13 @@ describe('schedule and configuration', () => {
     expect(contest.snapshot(37000).state.phase).toBe('finished');
     expect(contest.state.resultsAt).toBe(37000);
   });
-  it('uses a supplied scoring function and persists finalized points', () => {
+  it('persists median-normalized points and restores them on restart', () => {
     const f = setup();
-    const scored = new Contest(f.db, (estimate, correct) => (estimate === correct ? 10 : 0));
+    const scored = new Contest(f.db);
     const store = new AnswerStore(f.db, scored);
     store.save(f.id, f.operation(1, '100'), 2000);
-    expect(scored.snapshot(183000).standings[0]?.score).toBe(10);
-    expect(new Contest(f.db).snapshot(184000).standings[0]?.score).toBe(10);
+    expect(scored.snapshot(183000).standings[0]?.score).toBe(1000);
+    expect(new Contest(f.db).snapshot(184000).standings[0]?.score).toBe(1000);
   });
   it('rejects invalid configuration without changing the contest', () => {
     const f = setup();
@@ -194,5 +194,77 @@ describe('schedule and configuration', () => {
     expect(f.contest.snapshot(7999).correct).toBeNull();
     expect(f.contest.snapshot(9999).correct).toBeNull();
     expect(f.contest.snapshot(10000).correct).toBe('100');
+  });
+});
+
+describe('contest scoring', () => {
+  it('scores each closed question independently from final accepted answers and sums totals', () => {
+    const db = openDatabase(':memory:');
+    databases.push(db);
+    const contest = new Contest(db);
+    contest.configure(
+      {
+        durationSeconds: 180,
+        graceSeconds: 5,
+        latePolicy: 'strict',
+        resultsSeconds: null,
+        maxAnswer: '1000000',
+      },
+      [
+        { id: '', text: 'First question', correct: '100', seconds: 180 },
+        { id: '', text: 'Second question', correct: '100', seconds: 180 },
+      ],
+    );
+    const sessions = new Sessions(db);
+    const participants = ['A', 'B', 'C', 'D'].map(
+      (nickname) =>
+        sessions.create({
+          firstName: nickname,
+          lastName: 'Test',
+          nickname,
+        }).participant.id,
+    );
+    const answers = new AnswerStore(db, contest);
+    contest.command('start', 1000);
+    const firstId = contest.question!.id;
+    answers.save(
+      participants[0]!,
+      { questionId: firstId, operationId: randomUUID(), revision: 1, text: '400' },
+      2000,
+    );
+    for (const [index, text] of ['100', '200', '400'].entries()) {
+      answers.save(
+        participants[index]!,
+        { questionId: firstId, operationId: randomUUID(), revision: 2, text },
+        3000,
+      );
+    }
+    expect(db.prepare('SELECT * FROM scores').all()).toEqual([]);
+    expect(contest.snapshot(181000).results).toEqual([]);
+    const first = contest.snapshot(183000);
+    expect(first.results.map((result) => result.score)).toEqual([1000, 500, 333, null]);
+    contest.command('next', 184000);
+    const secondId = contest.question!.id;
+    for (const id of participants.slice(0, 3)) {
+      answers.save(
+        id,
+        { questionId: secondId, operationId: randomUUID(), revision: 1, text: '100' },
+        185000,
+      );
+    }
+    const restarted = new Contest(db);
+    expect(db.prepare('SELECT count(*) AS n FROM scores WHERE questionId=?').get(secondId)).toEqual(
+      { n: 0 },
+    );
+    const second = restarted.snapshot(366000);
+    expect(second.results.map((result) => result.score)).toEqual([1000, 1000, 1000, null]);
+    expect(second.standings.map((result) => result.score)).toEqual([2000, 1500, 1333, null]);
+    restarted.command('next', 367000);
+    expect(new Contest(db).snapshot(368000).standings.map((result) => result.score)).toEqual([
+      2000,
+      1500,
+      1333,
+      null,
+    ]);
   });
 });

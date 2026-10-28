@@ -35,7 +35,6 @@ function snapshot(): Snapshot {
     correct: null,
     results: [],
     standings: [],
-    scoringConfigured: false,
   };
 }
 const sent: Sent[] = [];

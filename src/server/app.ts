@@ -8,7 +8,6 @@ import { Contest } from '#est-server/contest';
 import { openDatabase } from '#est-server/database';
 import { AnswerStore } from '#est-server/answers';
 import { Sessions } from '#est-server/sessions';
-import type { Scorer } from '#est-server/scoring';
 import type { ClientEvents, ServerEvents } from '#est-shared/protocol';
 import { registerAuth } from '#est-server/auth';
 import { registerRoutes } from '#est-server/routes';
@@ -16,7 +15,6 @@ import { registerRealtime } from '#est-server/realtime';
 interface Options {
   databasePath: string;
   password: string;
-  score?: Scorer;
   staticPath?: string;
 }
 /** Create an isolated server instance; caller owns listening and graceful shutdown. */
@@ -24,7 +22,7 @@ export async function createApp(options: Options) {
   if (options.password.length < 16)
     throw new Error('ADMIN_PASSWORD must contain at least 16 characters.');
   const db = openDatabase(options.databasePath);
-  const contest = new Contest(db, options.score);
+  const contest = new Contest(db);
   const answers = new AnswerStore(db, contest);
   const sessions = new Sessions(db);
   const app = Fastify({ logger: process.env['NODE_ENV'] !== 'test', bodyLimit: 256_000 });
