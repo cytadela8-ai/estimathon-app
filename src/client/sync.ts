@@ -10,6 +10,7 @@ import type {
   Session,
   Answer,
   Operation,
+  AnswerState,
 } from '#est-shared/protocol';
 import { compareOperations, isPositiveInteger } from '#est-shared/protocol';
 import { Ledger } from '#est-client/ledger';
@@ -70,23 +71,19 @@ function remember(answer: Answer): void {
   const old = confirmed.get(answer.questionId);
   if (!old || compareOperations(answer, old) > 0) confirmed.set(answer.questionId, answer);
 }
-function apply(answer: Answer): void {
-  remember(answer);
-  ledger?.remote(answer);
-  refreshDraft();
-}
-function reconcile(answers: Answer[]): void {
+function reconcile(state: AnswerState): void {
+  if (!ledger) return;
+  const { answers, revisions } = state;
+  for (const [id, revision] of Object.entries(revisions)) ledger.observeRevision(id, revision);
   const ids = new Set([...confirmed.keys(), ...answers.map((a) => a.questionId)]);
-  if (ledger) {
-    const prefix = `estymator.answer.${ledger.participantId}.`;
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key?.startsWith(prefix)) ids.add(key.slice(prefix.length));
-    }
+  const prefix = `estymator.answer.${ledger.participantId}.`;
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key?.startsWith(prefix)) ids.add(key.slice(prefix.length));
   }
   confirmed.clear();
   for (const answer of answers) remember(answer);
-  for (const id of ids) ledger?.authoritative(id, confirmed.get(id));
+  for (const id of ids) ledger.authoritative(id, confirmed.get(id));
   refreshDraft();
 }
 function showTimeout(operation: Operation): void {
@@ -194,7 +191,7 @@ export function initialize(): () => void {
       if (error) return;
       client.update((v) => ({ ...v, offset: hello.snapshot.serverNow - (sent + Date.now()) / 2 }));
       guarded(() => {
-        reconcile(hello.answers);
+        reconcile(hello);
         receive(hello.snapshot);
         flush();
       });
@@ -215,9 +212,6 @@ export function initialize(): () => void {
     flush();
   });
   socket.on('answers', (answers) => guarded(() => reconcile(answers)));
-  socket.on('answer', (answer) => {
-    guarded(() => apply(answer));
-  });
   const storage = (event: StorageEvent) => {
     if (event.key === 'estymator.session') window.location.reload();
     if (event.key?.startsWith('estymator.answer.'))

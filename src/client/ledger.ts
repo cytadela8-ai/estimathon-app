@@ -49,7 +49,19 @@ export class Ledger {
     }
   }
   write(draft: Draft): void {
+    this.observeRevision(draft.operation.questionId, draft.operation.revision);
     this.storage.setItem(this.key(draft.operation.questionId), JSON.stringify(draft));
+  }
+  /** Remember the highest observed revision even when a host reverts the counted answer. */
+  observeRevision(questionId: string, revision: number): void {
+    const key = `estymator.revision.${this.participantId}.${questionId}`;
+    const previous = Number(this.storage.getItem(key) ?? 0);
+    if (revision > previous) this.storage.setItem(key, String(revision));
+  }
+  private highestRevision(questionId: string): number {
+    return Number(
+      this.storage.getItem(`estymator.revision.${this.participantId}.${questionId}`) ?? 0,
+    );
   }
   private stash(draft: Draft): void {
     if (!draft.pending || !isPositiveInteger(draft.operation.text)) return;
@@ -73,7 +85,12 @@ export class Ledger {
         questionId,
         text,
         operationId,
-        revision: Math.max(previous?.operation.revision ?? 0, knownRevision) + 1,
+        revision:
+          Math.max(
+            previous?.operation.revision ?? 0,
+            knownRevision,
+            this.highestRevision(questionId),
+          ) + 1,
         ...(timing ? { timing } : {}),
       },
       pending: true,
@@ -103,6 +120,7 @@ export class Ledger {
   /** Apply an authoritative snapshot, allowing moderation to remove or revert confirmed answers. */
   authoritative(questionId: string, answer: Answer | undefined): void {
     const current = this.read(questionId);
+    if (current) this.observeRevision(questionId, current.operation.revision);
     if (current?.pending || current?.error) {
       if (answer) this.remote(answer);
       return;
@@ -124,16 +142,13 @@ export class Ledger {
       draft.operation.operationId === receipt.operationId ||
       pending?.operationId === receipt.operationId;
     if (!relevant) return;
-    this.reject(draft, receipt);
+    this.reject(draft);
   }
-  private reject(draft: Draft, receipt: Receipt): void {
+  private reject(draft: Draft): void {
     this.write({
       ...draft,
       pending: false,
-      error:
-        receipt.status === 'closed'
-          ? 'Czas minął. Ta zmiana nie została przyjęta; obowiązuje ostatnia odpowiedź z serwera.'
-          : 'Nieprawidłowa liczba. Ostatnia poprawna odpowiedź pozostaje na serwerze.',
+      error: 'Nieprawidłowa liczba. Ostatnia poprawna odpowiedź pozostaje na serwerze.',
     });
   }
   private clearQueuedReceipt(receipt: Receipt, questionId: string): void {

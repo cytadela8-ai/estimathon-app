@@ -73,17 +73,19 @@ export interface Snapshot {
 }
 export interface Receipt {
   operationId: string;
-  status: 'accepted' | 'stale' | 'closed' | 'invalid' | 'paused';
+  status: 'accepted' | 'stale' | 'invalid' | 'paused';
   answer: Answer | null;
 }
-export interface Hello {
-  snapshot: Snapshot;
+export interface AnswerState {
   answers: Answer[];
+  revisions: Record<string, number>;
+}
+export interface Hello extends AnswerState {
+  snapshot: Snapshot;
 }
 export interface ServerEvents {
-  answers: (answers: Answer[]) => void;
+  answers: (state: AnswerState) => void;
   state: (snapshot: Snapshot) => void;
-  answer: (answer: Answer) => void;
 }
 export interface ClientEvents {
   snapshot: (ack: (hello: Hello) => void) => void;

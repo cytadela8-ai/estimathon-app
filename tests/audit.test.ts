@@ -143,3 +143,14 @@ it('recalculates the entire median field and rejects malformed telemetry without
   ).toBe('invalid');
   expect(f.store.all(f.ids[0]!)[0]?.text).toBe('200');
 });
+it('returns revision watermarks even when every submission is excluded', () => {
+  const f = setup();
+  const op = f.op(10);
+  const id = f.ids[0]!;
+  f.store.save(id, op, 1500);
+  f.store.review(
+    { participantId: id, operationId: op.operationId, excluded: true, reason: 'Review' },
+    8000,
+  );
+  expect(f.store.snapshot(id)).toEqual({ answers: [], revisions: { [op.questionId]: 10 } });
+});

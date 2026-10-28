@@ -76,31 +76,33 @@ export class Contest {
   }
   command(command: Command, now = Date.now()): void {
     this.tick(now);
-    const state = this.state;
-    switch (command) {
-      case 'start':
-        this.start(now);
-        break;
-      case 'pause':
-        this.pause(now);
-        break;
-      case 'resume':
-        this.resume(now);
-        break;
-      case 'extend':
-        this.extend(now);
-        break;
-      case 'next':
-        this.next(now);
-        break;
-      case 'finish':
-        this.finish(now);
-        break;
-      default:
-        throw new Error('Nieznane polecenie.');
-    }
-    state.version++;
-    this.persist();
+    this.db.transaction(() => {
+      const state = this.state;
+      switch (command) {
+        case 'start':
+          this.start(now);
+          break;
+        case 'pause':
+          this.pause(now);
+          break;
+        case 'resume':
+          this.resume(now);
+          break;
+        case 'extend':
+          this.extend(now);
+          break;
+        case 'next':
+          this.next(now);
+          break;
+        case 'finish':
+          this.finish(now);
+          break;
+        default:
+          throw new Error('Nieznane polecenie.');
+      }
+      state.version++;
+      this.persist();
+    })();
     this.tick(now);
   }
   private start(now: number): void {

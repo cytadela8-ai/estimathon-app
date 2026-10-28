@@ -90,7 +90,7 @@ beforeEach(async () => {
     emit: (event: string, ...args: unknown[]) => {
       if (event === 'snapshot') {
         const ack = args[0] as (error: Error | null, hello: Hello) => void;
-        ack(null, { snapshot: snapshot(), answers: [] });
+        ack(null, { snapshot: snapshot(), answers: [], revisions: {} });
       }
       if (event === 'save') {
         const operation = args[0] as Operation;
@@ -136,7 +136,7 @@ describe('answer acknowledgments', () => {
   });
   it('does not show a timeout after an accepted answer broadcast confirms the operation', () => {
     sync.edit('1');
-    handlers.get('answer')!(accepted(sent[0]!));
+    handlers.get('answers')!({ answers: [accepted(sent[0]!)], revisions: {} });
     sent[0]!.ack(new Error('Acknowledgment lost'));
     expect(get(sync.client)).toMatchObject({ pending: false, error: null, confirmed: '1' });
   });
@@ -178,11 +178,14 @@ it('refuses local edits at the deadline but keeps retrying the last offline oper
 it('accepts host exclusion and restored older server answers without losing newer pending edits', () => {
   sync.edit('123');
   confirm(sent[0]!);
-  handlers.get('answers')!([]);
+  handlers.get('answers')!({ answers: [], revisions: {} });
   expect(get(sync.client)).toMatchObject({ confirmed: null, text: '' });
-  handlers.get('answers')!([{ ...accepted(sent[0]!), revision: 0, text: '12' }]);
+  handlers.get('answers')!({
+    answers: [{ ...accepted(sent[0]!), revision: 0, text: '12' }],
+    revisions: {},
+  });
   expect(get(sync.client)).toMatchObject({ confirmed: '12', text: '12' });
   sync.edit('999');
-  handlers.get('answers')!([]);
+  handlers.get('answers')!({ answers: [], revisions: {} });
   expect(get(sync.client)).toMatchObject({ confirmed: null, text: '999', pending: true });
 });

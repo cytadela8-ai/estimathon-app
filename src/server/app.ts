@@ -36,7 +36,7 @@ export async function createApp(options: Options) {
     sessions,
     answers,
     connections,
-    reconcile: (id: string) => io.to(id).emit('answers', answers.all(id)),
+    reconcile: (id: string) => io.to(id).emit('answers', answers.snapshot(id)),
     changed: () => {
       dirty = true;
     },

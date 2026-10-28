@@ -33,7 +33,10 @@ export function registerRealtime(
     }
     socket.on('snapshot', (ack) => {
       if (typeof ack === 'function')
-        ack({ snapshot: contest.snapshot(), answers: id ? answers.all(id) : [] });
+        ack({
+          snapshot: contest.snapshot(),
+          ...(id ? answers.snapshot(id) : { answers: [], revisions: {} }),
+        });
     });
     socket.on('save', (operation, ack) => {
       if (!id || typeof ack !== 'function') return;
@@ -41,7 +44,7 @@ export function registerRealtime(
         const receipt = answers.save(id, operation);
         ack(receipt);
         if (receipt.status === 'accepted' && receipt.answer) {
-          io.to(id).emit('answers', answers.all(id));
+          io.to(id).emit('answers', answers.snapshot(id));
           changed();
         }
       } catch (error) {

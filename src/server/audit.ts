@@ -37,16 +37,30 @@ export function auditEntries(db: Database.Database): AuditEntry[] {
     LEFT JOIN answers a ON a.participantId=s.participantId AND a.questionId=s.questionId
     ORDER BY s.receivedAt DESC,s.operationId`)
     .all() as Submission[];
-  const review = db.prepare(`SELECT excluded,reason,reviewedAt FROM submission_reviews
-    WHERE participantId=? AND operationId=? ORDER BY id`);
+  const reviews = db
+    .prepare(`SELECT participantId,operationId,excluded,reason,reviewedAt
+    FROM submission_reviews ORDER BY id`)
+    .all() as {
+    participantId: string;
+    operationId: string;
+    excluded: number;
+    reason: string;
+    reviewedAt: number;
+  }[];
+  const history = new Map<string, AuditEntry['reviews']>();
+  for (const review of reviews) {
+    const key = `${review.participantId}/${review.operationId}`;
+    const decisions = history.get(key) ?? [];
+    decisions.push({
+      excluded: !!review.excluded,
+      reason: review.reason,
+      reviewedAt: review.reviewedAt,
+    });
+    history.set(key, decisions);
+  }
   return rows.map((row) => {
     const { timingJson, ...entry } = row;
     const timing = timingJson ? (JSON.parse(timingJson) as InputTiming) : undefined;
-    const reviews = review.all(row.participantId, row.operationId) as {
-      excluded: number;
-      reason: string;
-      reviewedAt: number;
-    }[];
     return {
       ...entry,
       ...(timing ? { timing } : {}),
@@ -54,7 +68,7 @@ export function auditEntries(db: Database.Database): AuditEntry[] {
       counted: !!row.counted,
       serverLateMs: row.deadlineAt === null ? null : row.receivedAt - row.deadlineAt,
       phoneLateMs: timing ? timing.inputAt - timing.endsAt : null,
-      reviews: reviews.map((r) => ({ ...r, excluded: !!r.excluded })),
+      reviews: history.get(`${row.participantId}/${row.operationId}`) ?? [],
     };
   });
 }

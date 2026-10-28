@@ -70,15 +70,15 @@ describe('storage-first reconciliation', () => {
       expect(ledger.read('q')?.operation.text).toBe(text);
     }
   });
-  it('retains rejected offline text and explains deadline rejection', () => {
+  it('retains invalid offline text and explains the validation failure', () => {
     const { ledger } = setup();
     const draft = ledger.edit('q', '99', 'late-edit');
     ledger.receipt(
-      { operationId: draft.operation.operationId, status: 'closed', answer: answer(0) },
+      { operationId: draft.operation.operationId, status: 'invalid', answer: answer(0) },
       'q',
     );
     expect(ledger.read('q')?.operation.text).toBe('99');
-    expect(ledger.read('q')?.error).toContain('Czas minął');
+    expect(ledger.read('q')?.error).toContain('Nieprawidłowa liczba');
     expect(ledger.read('q')?.pending).toBe(false);
   });
   it('fails visibly instead of claiming a save when browser storage is full', () => {
@@ -154,11 +154,22 @@ describe('pending valid edits and intermediate drafts', () => {
     const valid = ledger.edit('q', '123', 'offline-valid-operation');
     ledger.edit('q', '', 'intermediate-operation');
     ledger.receipt(
-      { operationId: valid.operation.operationId, status: 'closed', answer: null },
+      { operationId: valid.operation.operationId, status: 'invalid', answer: null },
       'q',
     );
     expect(ledger.pendingOperation('q')).toBeNull();
     expect(ledger.read('q')?.operation.text).toBe('');
-    expect(ledger.read('q')?.error).toContain('Czas minął');
+    expect(ledger.read('q')?.error).toContain('Nieprawidłowa liczba');
   });
+});
+
+it('keeps revision numbers increasing after moderation reverts or removes an answer', () => {
+  const { ledger } = setup();
+  ledger.edit('q', '123', 'first', 9);
+  ledger.remote({ ...answer(10), text: '123' });
+  ledger.authoritative('q', answer(1));
+  expect(ledger.edit('q', '999', 'next').operation.revision).toBe(11);
+  ledger.remote({ ...answer(11), text: '999' });
+  ledger.authoritative('q', undefined);
+  expect(ledger.edit('q', '100', 'after-removal').operation.revision).toBe(12);
 });

@@ -1,6 +1,13 @@
 /** Durable answer ledger with indefinite delayed delivery and reversible host exclusions. */
 import type Database from 'better-sqlite3';
-import type { Operation, Answer, Receipt, Review, AuditEntry } from '#est-shared/protocol';
+import type {
+  Operation,
+  Answer,
+  Receipt,
+  Review,
+  AuditEntry,
+  AnswerState,
+} from '#est-shared/protocol';
 import { compareOperations, validNumber } from '#est-shared/protocol';
 import { auditEntries, validTiming } from '#est-server/audit';
 import type { Contest } from '#est-server/contest';
@@ -13,6 +20,17 @@ export class AnswerStore {
     return this.db
       .prepare('SELECT * FROM answers WHERE participantId=?')
       .all(participantId) as Answer[];
+  }
+  /** Restore counted answers and revision watermarks, including excluded submissions. */
+  snapshot(participantId: string): AnswerState {
+    const revisions = this.db
+      .prepare(`SELECT questionId,MAX(revision) AS revision FROM submissions
+      WHERE participantId=? GROUP BY questionId`)
+      .all(participantId) as { questionId: string; revision: number }[];
+    return {
+      answers: this.all(participantId),
+      revisions: Object.fromEntries(revisions.map((row) => [row.questionId, row.revision])),
+    };
   }
   audit(): AuditEntry[] {
     return auditEntries(this.db);
@@ -106,14 +124,16 @@ export class AnswerStore {
       .get(participantId, questionId) as Answer | undefined;
   }
   private status(op: Operation, answer: Answer | undefined): Receipt['status'] {
-    const started = this.db
-      .prepare('SELECT 1 FROM question_windows WHERE questionId=?')
-      .get(op.questionId);
-    if (!started || !validNumber(op.text, this.contest.data.config.maxAnswer)) return 'invalid';
+    if (!this.started(op.questionId)) return 'invalid';
+    if (!validNumber(op.text, this.contest.data.config.maxAnswer)) return 'invalid';
     if (op.questionId === this.contest.question?.id && this.contest.state.phase === 'paused')
       return 'paused';
     if (answer && compareOperations(op, answer) <= 0) return 'stale';
     return 'accepted';
+  }
+  private started(questionId: string): boolean {
+    const index = this.contest.data.questions.findIndex((q) => q.id === questionId);
+    return index >= 0 && index <= this.contest.state.index;
   }
   private selectAnswer(participantId: string, questionId: string): void {
     const candidate = this.db

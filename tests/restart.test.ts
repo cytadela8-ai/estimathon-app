@@ -76,6 +76,7 @@ it('retains an acknowledged answer, idempotency receipt, session and deadline af
     operationId: randomUUID(),
     revision: 1,
     text: '123',
+    timing: { inputAt: Date.now(), endsAt: before.snapshot.state.endsAt!, offsetMs: 0 },
   };
   const receipt = await new Promise<Receipt>((resolve) => player!.emit('save', operation, resolve));
   expect(receipt.status).toBe('accepted');
@@ -97,6 +98,13 @@ it('retains an acknowledged answer, idempotency receipt, session and deadline af
   expect(after.snapshot.state.endsAt).toBe(before.snapshot.state.endsAt);
   expect(after.snapshot.state.phase).toBe('active');
   expect(after.answers[0]?.text).toBe('123');
+  const audit = restored.db.prepare('SELECT receivedAt,timing FROM submissions').get() as {
+    receivedAt: number;
+    timing: string;
+  };
+  expect(audit.receivedAt).toBe(receipt.answer?.acceptedAt);
+  expect(JSON.parse(audit.timing)).toEqual(operation.timing);
+  expect(after.revisions[operation.questionId]).toBe(1);
   const duplicate = await new Promise<Receipt>((resolve) =>
     player!.emit('save', operation, resolve),
   );
