@@ -75,16 +75,18 @@ function apply(answer: Answer): void {
   ledger?.remote(answer);
   refreshDraft();
 }
+function showTimeout(operation: Operation): void {
+  if (current.snapshot?.question?.id !== operation.questionId) return;
+  if (ledger?.pendingOperation(operation.questionId)?.operationId !== operation.operationId) return;
+  client.update((v) => ({ ...v, error: 'Brak potwierdzenia zapisu. Ponawiamy synchronizację.' }));
+}
 function send(operation: Operation): void {
   if (!socket?.connected || inFlight.has(operation.operationId)) return;
   inFlight.add(operation.operationId);
   socket.timeout(2000).emit('save', operation, (error: Error | null, receipt) => {
     inFlight.delete(operation.operationId);
     if (error) {
-      client.update((v) => ({
-        ...v,
-        error: 'Brak potwierdzenia zapisu. Ponawiamy synchronizację.',
-      }));
+      guarded(() => showTimeout(operation));
       return;
     }
     guarded(() => {
