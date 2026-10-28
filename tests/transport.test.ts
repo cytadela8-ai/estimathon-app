@@ -74,9 +74,7 @@ it('acknowledges durable saves and gives a reconnected projector a redacted snap
   f.contest.configure(
     {
       durationSeconds: 180,
-      graceSeconds: 5,
-      latePolicy: 'strict',
-      resultsSeconds: null,
+      revealDelaySeconds: 2,
       maxAnswer: '9999',
     },
     [{ id: '', text: 'Ile?', correct: '100', seconds: 180 }],
@@ -114,9 +112,7 @@ it('accepts a simultaneous network burst from 300 participants', async () => {
   f.contest.configure(
     {
       durationSeconds: 180,
-      graceSeconds: 5,
-      latePolicy: 'strict',
-      resultsSeconds: null,
+      revealDelaySeconds: 2,
       maxAnswer: '9999',
     },
     [{ id: '', text: 'Ile?', correct: '100', seconds: 180 }],

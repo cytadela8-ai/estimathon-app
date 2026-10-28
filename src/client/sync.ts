@@ -75,6 +75,20 @@ function apply(answer: Answer): void {
   ledger?.remote(answer);
   refreshDraft();
 }
+function reconcile(answers: Answer[]): void {
+  const ids = new Set([...confirmed.keys(), ...answers.map((a) => a.questionId)]);
+  if (ledger) {
+    const prefix = `estymator.answer.${ledger.participantId}.`;
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(prefix)) ids.add(key.slice(prefix.length));
+    }
+  }
+  confirmed.clear();
+  for (const answer of answers) remember(answer);
+  for (const id of ids) ledger?.authoritative(id, confirmed.get(id));
+  refreshDraft();
+}
 function showTimeout(operation: Operation): void {
   if (current.snapshot?.question?.id !== operation.questionId) return;
   if (ledger?.pendingOperation(operation.questionId)?.operationId !== operation.operationId) return;
@@ -99,7 +113,7 @@ function send(operation: Operation): void {
 function flush(): void {
   guarded(() => {
     if (!ledger) return;
-    // Include drafts from previous questions so late rejection is explicit after reconnect.
+    // Retry previous questions too: delayed delivery remains open after results are revealed.
     const prefix = `estymator.answer.${ledger.participantId}.`;
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
@@ -111,7 +125,9 @@ function flush(): void {
 }
 export function edit(text: string): void {
   const question = current.snapshot?.question;
-  if (!question || !ledger) return;
+  const inputAt = Date.now();
+  const endsAt = editingDeadline(inputAt);
+  if (!question || !ledger || endsAt === null) return;
   // Update visible text even when storage is unavailable; do not claim it was saved.
   client.update((v) => ({ ...v, text }));
   guarded(() => {
@@ -120,10 +136,16 @@ export function edit(text: string): void {
       text,
       cryptoId(),
       confirmed.get(question.id)?.revision ?? 0,
+      { inputAt, endsAt: endsAt - current.offset, offsetMs: current.offset },
     );
     refreshDraft();
     if (isPositiveInteger(text)) send(draft.operation);
   });
+}
+function editingDeadline(inputAt: number): number | null {
+  const state = current.snapshot?.state;
+  if (state?.phase !== 'active' || state.endsAt === null) return null;
+  return inputAt + current.offset < state.endsAt ? state.endsAt : null;
 }
 function cryptoId(): string {
   // getRandomValues works on HTTP LAN origins where randomUUID may be unavailable.
@@ -172,7 +194,7 @@ export function initialize(): () => void {
       if (error) return;
       client.update((v) => ({ ...v, offset: hello.snapshot.serverNow - (sent + Date.now()) / 2 }));
       guarded(() => {
-        for (const answer of hello.answers) apply(answer);
+        reconcile(hello.answers);
         receive(hello.snapshot);
         flush();
       });
@@ -192,6 +214,7 @@ export function initialize(): () => void {
     receive(snapshot);
     flush();
   });
+  socket.on('answers', (answers) => guarded(() => reconcile(answers)));
   socket.on('answer', (answer) => {
     guarded(() => apply(answer));
   });

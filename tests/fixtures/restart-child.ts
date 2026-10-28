@@ -6,9 +6,7 @@ const { app, contest } = await createApp({ databasePath, password: 'restart-test
 contest.configure(
   {
     durationSeconds: 180,
-    graceSeconds: 5,
-    latePolicy: 'strict',
-    resultsSeconds: null,
+    revealDelaySeconds: 2,
     maxAnswer: '1000000',
   },
   [{ id: '', text: 'Restart test', correct: '123', seconds: 180 }],

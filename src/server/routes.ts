@@ -1,16 +1,19 @@
 /** Validated HTTP operations for host control, registration and recovery. */
 import type { FastifyInstance } from 'fastify';
 import type { Contest } from '#est-server/contest';
+import type { AnswerStore } from '#est-server/answers';
 import type { Sessions } from '#est-server/sessions';
-import type { Config, Question, Command, Participant } from '#est-shared/protocol';
+import type { Config, Question, Command, Participant, Review } from '#est-shared/protocol';
 interface Context {
   contest: Contest;
   sessions: Sessions;
+  answers: AnswerStore;
+  reconcile: (participantId: string) => void;
   connections: Map<string, number>;
   changed: () => void;
 }
 export function registerRoutes(app: FastifyInstance, context: Context): void {
-  const { contest, sessions, connections, changed } = context;
+  const { contest, sessions, answers, connections, changed, reconcile } = context;
   const db = contest.db;
   app.post<{ Body: Omit<Participant, 'id'> }>('/api/session', async (request) => {
     const session = sessions.create(request.body);
@@ -28,6 +31,17 @@ export function registerRoutes(app: FastifyInstance, context: Context): void {
     participants: sessions.list().map((p) => ({ ...p, connections: connections.get(p.id) ?? 0 })),
     answers: db.prepare('SELECT * FROM answers').all(),
   }));
+  app.get('/api/admin/results', async () => ({
+    questions: contest.questionResults(),
+    standings: contest.standings(),
+    audit: answers.audit(),
+  }));
+  app.post<{ Body: Review }>('/api/admin/review', async (request) => {
+    answers.review(request.body);
+    reconcile(request.body.participantId);
+    changed();
+    return { ok: true };
+  });
   app.put<{ Body: { config: Config; questions: Question[] } }>(
     '/api/admin/config',
     async (request) => {

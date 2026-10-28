@@ -23,6 +23,23 @@ export function openDatabase(path: string): Database.Database {
       participantId TEXT NOT NULL, operationId TEXT NOT NULL, payload TEXT NOT NULL,
       receipt TEXT NOT NULL, PRIMARY KEY(participantId, operationId)
     );
+    CREATE TABLE IF NOT EXISTS question_windows (
+      questionId TEXT PRIMARY KEY, startedAt INTEGER NOT NULL, endsAt INTEGER
+    );
+    CREATE TABLE IF NOT EXISTS submissions (
+      participantId TEXT NOT NULL, operationId TEXT NOT NULL, questionId TEXT NOT NULL,
+      revision INTEGER NOT NULL, text TEXT NOT NULL, receivedAt INTEGER NOT NULL,
+      timing TEXT, eligible INTEGER NOT NULL, status TEXT NOT NULL, excluded INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY(participantId, operationId)
+    );
+    CREATE INDEX IF NOT EXISTS submissions_question ON submissions(questionId, participantId);
+    INSERT OR IGNORE INTO submissions
+      (participantId,operationId,questionId,revision,text,receivedAt,eligible,status)
+      SELECT participantId,operationId,questionId,revision,text,acceptedAt,1,'accepted' FROM answers;
+    CREATE TABLE IF NOT EXISTS submission_reviews (
+      id INTEGER PRIMARY KEY, participantId TEXT NOT NULL, operationId TEXT NOT NULL,
+      excluded INTEGER NOT NULL, reason TEXT NOT NULL, reviewedAt INTEGER NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS scores (
       participantId TEXT NOT NULL, questionId TEXT NOT NULL, score REAL,
       PRIMARY KEY(participantId, questionId)

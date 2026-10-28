@@ -1209,3 +1209,75 @@ td .text-button {
     overflow: auto;
   }
 }
+
+/* Participant screens keep identity recovery in place and contain no outbound navigation. */
+.play-shell .site-header {
+  height: 72px;
+}
+.play-shell .brand {
+  font-size: 24px;
+}
+.play-shell .play-main {
+  padding-top: 28px;
+}
+.account {
+  position: relative;
+}
+.account summary {
+  font-size: 13px;
+}
+.account-panel {
+  position: absolute;
+  right: 0;
+  z-index: 5;
+  width: min(330px, 85vw);
+}
+.account-panel code {
+  overflow-wrap: anywhere;
+}
+.play-shell .join-card > details {
+  margin-top: 24px;
+}
+.host-results {
+  margin-bottom: 24px;
+}
+.host-results h3 {
+  margin-top: 28px;
+}
+.audit-filters {
+  margin: 24px 0;
+}
+.audit-table {
+  max-height: 650px;
+}
+.audit-table th {
+  position: sticky;
+  top: 0;
+  background: #f6f7ee;
+  z-index: 1;
+}
+.audit-table td {
+  vertical-align: top;
+  min-width: 150px;
+}
+.audit-table small {
+  overflow-wrap: anywhere;
+}
+.audit-table .excluded {
+  background: #f6e8df;
+}
+.review-form label {
+  display: block;
+  margin: 16px 0;
+}
+.podium-names {
+  --results-window: 170px;
+}
+.podium-names.many {
+  max-height: var(--results-window);
+  overflow: hidden;
+}
+.provisional {
+  font-size: 13px;
+  opacity: 0.7;
+}

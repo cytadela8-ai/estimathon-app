@@ -1,10 +1,8 @@
-/** Wire types. Public state contains results only after the server closes acceptance. */
+/** Wire types. Public results appear only after the reveal delay; delayed sync stays open. */
 export type Phase = 'lobby' | 'active' | 'paused' | 'closing' | 'results' | 'finished';
 export interface Config {
   durationSeconds: number;
-  graceSeconds: number;
-  latePolicy: 'strict' | 'grace';
-  resultsSeconds: number | null;
+  revealDelaySeconds: number;
   maxAnswer: string;
 }
 export interface Question {
@@ -23,11 +21,17 @@ export interface State {
   resultsAt: number | null;
   version: number;
 }
+export interface InputTiming {
+  inputAt: number;
+  endsAt: number;
+  offsetMs: number;
+}
 export interface Operation {
   questionId: string;
   operationId: string;
   revision: number;
   text: string;
+  timing?: InputTiming;
 }
 export interface Answer extends Operation {
   participantId: string;
@@ -48,12 +52,13 @@ export interface Result {
   participantId: string;
   nickname: string;
   answer: string | null;
-  score: number | null;
+  score: number;
 }
 export interface Standing {
+  place: number;
   participantId: string;
   nickname: string;
-  score: number | null;
+  score: number;
 }
 export interface Snapshot {
   serverNow: number;
@@ -76,6 +81,7 @@ export interface Hello {
   answers: Answer[];
 }
 export interface ServerEvents {
+  answers: (answers: Answer[]) => void;
   state: (snapshot: Snapshot) => void;
   answer: (answer: Answer) => void;
 }
@@ -96,4 +102,31 @@ export function isPositiveInteger(text: string): boolean {
 /** Preserve editing text but validate the normalized integer with arbitrary precision. */
 export function validNumber(text: string, maximum: string): boolean {
   return isPositiveInteger(text) && BigInt(text) <= BigInt(maximum);
+}
+
+export interface Review {
+  participantId: string;
+  operationId: string;
+  excluded: boolean;
+  reason: string;
+}
+export interface AuditEntry extends Operation {
+  participantId: string;
+  nickname: string;
+  firstName: string;
+  lastName: string;
+  receivedAt: number;
+  deadlineAt: number | null;
+  serverLateMs: number | null;
+  phoneLateMs: number | null;
+  status: Receipt['status'];
+  excluded: boolean;
+  counted: boolean;
+  reviews: { excluded: boolean; reason: string; reviewedAt: number }[];
+}
+export interface QuestionResults {
+  question: Question;
+  deadlineAt: number | null;
+  revealed: boolean;
+  results: Result[];
 }

@@ -41,7 +41,7 @@ export function registerRealtime(
         const receipt = answers.save(id, operation);
         ack(receipt);
         if (receipt.status === 'accepted' && receipt.answer) {
-          io.to(id).emit('answer', receipt.answer);
+          io.to(id).emit('answers', answers.all(id));
           changed();
         }
       } catch (error) {

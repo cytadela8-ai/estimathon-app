@@ -3,6 +3,7 @@
   import QRCode from 'qrcode';
   import { api, client } from '#est-client/sync';
   import Timer from '#est-client/Timer.svelte';
+  import Results from '#est-client/Results.svelte';
   import type { Config, Question, Participant, Answer, Command } from '#est-shared/protocol';
   interface Overview {
     config: Config;
@@ -21,13 +22,13 @@
   let tab = $state('contest');
   let qr = $state('');
   let qrName = $state('');
-  let manualResults = $state(true);
   const phase = $derived($client.snapshot?.state.phase ?? 'lobby');
   const sections = [
     ['contest', 'Przebieg konkursu'],
     ['questions', 'Pytania i ustawienia'],
     ['people', 'Uczestnicy'],
     ['answers', 'Odpowiedzi'],
+    ['results', 'Wyniki i monitoring'],
   ];
   const labels: Record<string, string> = {
     lobby: 'Oczekiwanie',
@@ -47,7 +48,6 @@
       if (initial || !config) {
         config = { ...overview.config };
         questions = structuredClone(overview.questions);
-        manualResults = config.resultsSeconds === null;
       }
     } catch (e) {
       if (isUnauthorized(e)) {
@@ -91,7 +91,6 @@
     busy = true;
     error = '';
     try {
-      if (config) config.resultsSeconds = manualResults ? null : (config.resultsSeconds ?? 20);
       await api('/api/admin/config', { config, questions }, token, 'PUT');
       notice = 'Konfiguracja została zapisana.';
       await load(true);
@@ -246,10 +245,7 @@
         </section>
         <aside class="notice">
           <strong>Odpowiedzi zapisują się automatycznie</strong>
-          <p>
-            Po zamknięciu pytania ekran czeka na koniec okna przyjmowania odpowiedzi i ujawnia
-            wyniki etapami.
-          </p>
+          <p>Po zamknięciu pytania ekran czeka na synchronizację i ujawnia wyniki etapami.</p>
           <p>
             Punktacja: do 1000 pkt za pytanie. Błąd logarytmiczny jest porównywany z medianą błędów
             przyjętych odpowiedzi.
@@ -272,33 +268,18 @@
                   inputmode="numeric"
                 /></label
               ><label
-                >Przyjmowanie spóźnionych odpowiedzi<select bind:value={config.latePolicy}
-                  ><option value="strict">Ścisłe — do końca czasu</option><option value="grace"
-                    >Dodatkowe okno dostarczenia</option
-                  ></select
-                ></label
-              ><label
-                >Dodatkowe okno (sekundy)<input
+                >Oczekiwanie przed ujawnieniem wyników (sekundy)<input
                   type="number"
-                  min="0"
+                  min="1"
                   max="60"
-                  bind:value={config.graceSeconds}
+                  bind:value={config.revealDelaySeconds}
                 /></label
-              ><label class="checkbox"
-                ><input type="checkbox" bind:checked={manualResults} />Prowadzący uruchamia następne
-                pytanie</label
-              >{#if !manualResults}<label
-                  >Czas prezentacji wyników (min. 15 s)<input
-                    type="number"
-                    min="15"
-                    max="86400"
-                    bind:value={config.resultsSeconds}
-                  /></label
-                >{/if}
+              >
             </div>
             <p class="input-help">
-              Dodatkowe okno przyjmuje również nowe odpowiedzi wysłane po końcu czasu — czas
-              urządzenia uczestnika nie jest dowodem wcześniejszego wpisania.
+              Kolejne pytanie uruchamia prowadzący. Spóźnione odpowiedzi są synchronizowane bez
+              limitu i automatycznie przeliczają wyniki. Sprawdzaj ich czasy i wykluczaj podejrzane
+              operacje w monitoringu.
             </p>
             <div class="section-heading">
               <h2>Pytania <span>({questions.length})</span></h2>
@@ -381,6 +362,7 @@
           </div>
           {#if !overview?.participants.length}<p>Nikt jeszcze nie dołączył.</p>{/if}
         </section>
+      {:else if tab === 'results'}<Results {token} />
       {:else if tab === 'answers'}<section class="card">
           <h2>Przyjęte odpowiedzi</h2>
           <div class="table-scroll">

@@ -13,7 +13,7 @@ const databases: ReturnType<typeof openDatabase>[] = [];
 afterEach(() => {
   for (const db of databases.splice(0)) if (db.open) db.close();
 });
-function setup(path = ':memory:', grace = false) {
+function setup(path = ':memory:') {
   const db = openDatabase(path);
   databases.push(db);
   const contest = new Contest(db);
@@ -21,9 +21,7 @@ function setup(path = ':memory:', grace = false) {
     contest.configure(
       {
         durationSeconds: 180,
-        graceSeconds: 5,
-        latePolicy: grace ? 'grace' : 'strict',
-        resultsSeconds: null,
+        revealDelaySeconds: 2,
         maxAnswer: '999999999999999999999',
       },
       [{ id: '', text: 'Ile?', correct: '100', seconds: 180 }],
@@ -84,20 +82,14 @@ describe('answer ledger', () => {
     f.answers.save(f.id, f.operation(1, '00042'), 2000);
     expect(f.answers.all(f.id)[0]?.text).toBe('00042');
   });
-  it('strictly rejects at the deadline and discloses nothing during reveal delay', () => {
+  it('accepts late arrivals without revealing results before the transition finishes', () => {
     const f = setup();
     f.answers.save(f.id, f.operation(1), 2000);
-    expect(f.answers.save(f.id, f.operation(2), 181000).status).toBe('closed');
+    expect(f.answers.save(f.id, f.operation(2), 181000).status).toBe('accepted');
     expect(f.contest.snapshot(182000).correct).toBeNull();
     expect(f.contest.snapshot(182000).results).toEqual([]);
     expect(f.contest.snapshot(183000).correct).toBe('100');
-  });
-  it('accepts late delivery only within the configured grace window', () => {
-    const f = setup(':memory:', true);
-    expect(f.answers.save(f.id, f.operation(1), 185999).status).toBe('accepted');
-    expect(f.answers.save(f.id, f.operation(2), 186000).status).toBe('closed');
-    expect(f.contest.snapshot(187000).results).toEqual([]);
-    expect(f.contest.snapshot(188000).results).toHaveLength(1);
+    expect(f.answers.save(f.id, f.operation(3), 300000).status).toBe('accepted');
   });
   it('pauses, resumes and extends the authoritative deadline', () => {
     const f = setup();
@@ -133,16 +125,14 @@ describe('answer ledger', () => {
 });
 
 describe('schedule and configuration', () => {
-  it('advances automatically after the configured results interval and finishes', () => {
+  it('waits for host advancement after each reveal and finishes manually', () => {
     const db = openDatabase(':memory:');
     databases.push(db);
     const contest = new Contest(db);
     contest.configure(
       {
         durationSeconds: 1,
-        graceSeconds: 5,
-        latePolicy: 'strict',
-        resultsSeconds: 15,
+        revealDelaySeconds: 2,
         maxAnswer: '1000',
       },
       [
@@ -152,10 +142,14 @@ describe('schedule and configuration', () => {
     );
     contest.command('start', 1000);
     expect(contest.snapshot(4000).state.phase).toBe('results');
+    expect(contest.snapshot(19000).state.index).toBe(0);
+    contest.command('next', 19000);
     expect(contest.snapshot(19000).state.index).toBe(1);
     expect(contest.snapshot(19000).state.phase).toBe('active');
     expect(contest.snapshot(22000).state.phase).toBe('results');
-    expect(contest.snapshot(37000).state.phase).toBe('finished');
+    expect(contest.snapshot(37000).state.phase).toBe('results');
+    contest.command('next', 37000);
+    expect(contest.state.phase).toBe('finished');
     expect(contest.state.resultsAt).toBe(37000);
   });
   it('persists median-normalized points and restores them on restart', () => {
@@ -174,8 +168,8 @@ describe('schedule and configuration', () => {
     expect(() => fresh.configure({ ...f.contest.data.config, maxAnswer: '-1' }, [])).toThrow(
       'zakres',
     );
-    expect(() => fresh.configure({ ...f.contest.data.config, resultsSeconds: 1 }, [])).toThrow(
-      '15',
+    expect(() => fresh.configure({ ...f.contest.data.config, revealDelaySeconds: 0 }, [])).toThrow(
+      'czas',
     );
     expect(fresh.data.questions).toEqual([]);
   });
@@ -188,12 +182,12 @@ describe('schedule and configuration', () => {
     expect(f.answers.all(f.id)).toEqual([]);
   });
   it('does not disclose results when the host closes a paused question', () => {
-    const f = setup(':memory:', true);
+    const f = setup(':memory:');
     f.contest.command('pause', 2000);
     f.contest.command('next', 3000);
-    expect(f.contest.snapshot(7999).correct).toBeNull();
-    expect(f.contest.snapshot(9999).correct).toBeNull();
-    expect(f.contest.snapshot(10000).correct).toBe('100');
+    expect(f.contest.snapshot(4999).correct).toBeNull();
+    expect(f.contest.snapshot(4999).correct).toBeNull();
+    expect(f.contest.snapshot(5000).correct).toBe('100');
   });
 });
 
@@ -205,9 +199,7 @@ describe('contest scoring', () => {
     contest.configure(
       {
         durationSeconds: 180,
-        graceSeconds: 5,
-        latePolicy: 'strict',
-        resultsSeconds: null,
+        revealDelaySeconds: 2,
         maxAnswer: '1000000',
       },
       [
@@ -242,7 +234,7 @@ describe('contest scoring', () => {
     expect(db.prepare('SELECT * FROM scores').all()).toEqual([]);
     expect(contest.snapshot(181000).results).toEqual([]);
     const first = contest.snapshot(183000);
-    expect(first.results.map((result) => result.score)).toEqual([1000, 500, 333, null]);
+    expect(first.results.map((result) => result.score)).toEqual([1000, 500, 333, 0]);
     contest.command('next', 184000);
     const secondId = contest.question!.id;
     for (const id of participants.slice(0, 3)) {
@@ -257,14 +249,11 @@ describe('contest scoring', () => {
       { n: 0 },
     );
     const second = restarted.snapshot(366000);
-    expect(second.results.map((result) => result.score)).toEqual([1000, 1000, 1000, null]);
-    expect(second.standings.map((result) => result.score)).toEqual([2000, 1500, 1333, null]);
+    expect(second.results.map((result) => result.score)).toEqual([1000, 1000, 1000, 0]);
+    expect(second.standings.map((result) => result.score)).toEqual([2000, 1500, 1333, 0]);
     restarted.command('next', 367000);
     expect(new Contest(db).snapshot(368000).standings.map((result) => result.score)).toEqual([
-      2000,
-      1500,
-      1333,
-      null,
+      2000, 1500, 1333, 0,
     ]);
   });
 });

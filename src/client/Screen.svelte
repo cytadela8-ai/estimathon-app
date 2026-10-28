@@ -2,13 +2,14 @@
   import { now } from '#est-client/clock';
   import { client } from '#est-client/sync';
   import Timer from '#est-client/Timer.svelte';
+  import Podium from '#est-client/Podium.svelte';
   const s = $derived($client.snapshot);
   const phase = $derived(s?.state.phase ?? 'lobby');
   const questionNumber = $derived(String((s?.state.index ?? 0) + 1).padStart(2, '0'));
   const elapsed = $derived($now + $client.offset - (s?.state.resultsAt ?? $now));
   const submitted = $derived((s?.results ?? []).filter((r) => r.answer !== null));
   const maximum = $derived(Math.max(1, ...submitted.map((r) => Math.log10(Number(r.answer) + 1))));
-  const ranked = $derived((s?.standings ?? []).filter((r) => r.score !== null));
+  const ranked = $derived(s?.standings ?? []);
   const bins = $derived(
     Array.from(
       { length: 20 },
@@ -62,20 +63,7 @@
         <div class="mini-label">WIELKI FINAŁ · ESTYMATOR</div>
         <h1>Najlepsze <em>wyczucie.</em></h1>
         <div class="final-stage" class:expanded={elapsed > 6000 && (s?.standings.length ?? 0) > 0}>
-          {#if ranked.length}<div class="podium">
-              {#each [1, 0, 2] as index}{@const person = ranked[index]}
-                {#if person}<div
-                    class="podium-person"
-                    class:winner={index === 0}
-                    style={`--place:${index}`}
-                  >
-                    <span class="medal">{index === 0 ? '✳' : '↗'}</span>
-                    <h2>{person.nickname}</h2>
-                    <p>{person.score?.toLocaleString('pl-PL')} pkt</p>
-                    <div class="podium-block">{index + 1}</div>
-                  </div>{/if}
-              {/each}
-            </div>{:else}<div>
+          {#if ranked.length}<Podium standings={ranked} />{:else}<div>
               <div class="orbit">✳</div>
               <p>Dziękujemy wszystkim {s?.participantCount} uczestnikom!</p>
               <p>Brak sklasyfikowanych wyników.</p>
@@ -85,15 +73,9 @@
                 class="scrolling-results"
                 style={`--scroll-duration:${Math.max(20, (s?.standings.length ?? 0) * 2)}s`}
               >
-                {#each s?.standings ?? [] as person, i}<div class="leader-row">
-                    <span>{person.score === null ? '—' : i + 1}</span><strong
-                      >{person.nickname}</strong
-                    >
-                    <span
-                      >{person.score === null
-                        ? 'Bez klasyfikacji'
-                        : `${person.score.toLocaleString('pl-PL')} pkt`}</span
-                    >
+                {#each s?.standings ?? [] as person}<div class="leader-row">
+                    <span>{person.place}</span><strong>{person.nickname}</strong>
+                    <span>{person.score.toLocaleString('pl-PL')} pkt</span>
                   </div>{/each}
               </div>
             </div>{/if}
@@ -102,6 +84,9 @@
     {:else}<div class="screen-results">
         <div class="mini-label">PYTANIE {(s?.state.index ?? 0) + 1} · WYNIKI</div>
         <h1>Sprawdźmy <em>wyczucie.</em></h1>
+        <p class="provisional">
+          Spóźnione synchronizacje i decyzje prowadzącego aktualizują wyniki.
+        </p>
         <div class="reveal-grid">
           <section class="distribution">
             <h2>Wasze odpowiedzi <span>{submitted.length} estymacji</span></h2>
@@ -132,8 +117,10 @@
         {#if elapsed > 7000}<section class="screen-leaderboard">
             <h2>Czołówka konkursu <span>Klasyfikacja łączna</span></h2>
             {#if ranked.length}<div class="top-list">
-                {#each ranked.slice(0, 5) as person, i}<div class="leader-row">
-                    <span class="rank">{String(i + 1).padStart(2, '0')}</span><strong
+                {#each ranked.filter((person) => person.place <= 5) as person}<div
+                    class="leader-row"
+                  >
+                    <span class="rank">{String(person.place).padStart(2, '0')}</span><strong
                       >{person.nickname}</strong
                     ><span>{person.score?.toLocaleString('pl-PL')} pkt</span>
                   </div>{/each}

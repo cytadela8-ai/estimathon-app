@@ -11,8 +11,10 @@ import type {
   Snapshot,
   Result,
   Standing,
+  QuestionResults,
 } from '#est-shared/protocol';
 import { validNumber } from '#est-shared/protocol';
+import { competitionPlaces } from '#est-shared/ranking';
 import { scoreQuestion } from '#est-server/scoring';
 interface Stored {
   config: Config;
@@ -21,9 +23,7 @@ interface Stored {
 }
 const defaults: Config = {
   durationSeconds: 180,
-  graceSeconds: 5,
-  latePolicy: 'strict',
-  resultsSeconds: null,
+  revealDelaySeconds: 5,
   maxAnswer: '999999999999999999999999999999',
 };
 export class Contest {
@@ -48,7 +48,13 @@ export class Contest {
             version: 0,
           },
         };
+    this.data.config = {
+      durationSeconds: this.data.config.durationSeconds,
+      maxAnswer: this.data.config.maxAnswer,
+      revealDelaySeconds: this.data.config.revealDelaySeconds ?? defaults.revealDelaySeconds,
+    };
     this.persist();
+    this.restoreWindow();
     this.rebuildScores();
   }
   persist(): void {
@@ -108,6 +114,7 @@ export class Contest {
     this.state.phase = 'paused';
     this.state.endsAt = null;
     this.state.closesAt = null;
+    this.saveWindow();
   }
   private resume(now: number): void {
     if (this.state.phase !== 'paused') throw new Error('Konkurs nie jest wstrzymany.');
@@ -133,11 +140,23 @@ export class Contest {
   }
   private setDeadline(end: number): void {
     this.state.endsAt = end;
-    const grace =
-      this.data.config.latePolicy === 'grace' ? this.data.config.graceSeconds * 1000 : 0;
-    // A separate two-second reveal delay also applies with strict acceptance.
-    this.state.closesAt = end + grace;
+    this.state.closesAt = end + this.data.config.revealDelaySeconds * 1000;
+    this.saveWindow();
   }
+  private saveWindow(): void {
+    if (!this.question) return;
+    this.db
+      .prepare(`INSERT OR REPLACE INTO question_windows VALUES(?,?,?)`)
+      .run(this.question.id, this.state.startedAt, this.state.endsAt);
+  }
+  private restoreWindow(): void {
+    if (
+      this.question &&
+      !this.db.prepare('SELECT 1 FROM question_windows WHERE questionId=?').get(this.question.id)
+    )
+      this.saveWindow();
+  }
+
   private begin(index: number, now: number): void {
     if (index >= this.data.questions.length) {
       this.state.phase = 'finished';
@@ -154,7 +173,7 @@ export class Contest {
       state.phase = 'closing';
       state.version++;
     }
-    if (state.phase === 'closing' && deadlineReached(state.closesAt, now - 2000)) {
+    if (state.phase === 'closing' && deadlineReached(state.closesAt, now)) {
       this.db.transaction(() => {
         this.finalize();
         state.phase = 'results';
@@ -163,19 +182,40 @@ export class Contest {
         this.persist();
       })();
     }
-    this.advanceResults(now);
     if (state.version !== previous) this.persist();
     return state.version !== previous;
   }
-  private advanceResults(now: number): void {
-    const duration = this.data.config.resultsSeconds;
-    if (this.state.phase !== 'results' || duration === null) return;
-    if (!deadlineReached(this.state.resultsAt, now - duration * 1000)) return;
-    this.begin(this.state.index + 1, now);
+  /** Recompute revealed points atomically with a counted answer or host review. */
+  answerChanged(questionId: string): void {
+    const index = this.data.questions.findIndex((q) => q.id === questionId);
+    if (index < 0) return;
+    if (this.isRevealed(index)) this.finalize(this.data.questions[index]);
     this.state.version++;
+    this.persist();
+  }
+  private isRevealed(index: number): boolean {
+    return (
+      index < this.state.index ||
+      (index === this.state.index && ['results', 'finished'].includes(this.state.phase))
+    );
+  }
+  /** Return all host-only question results, including zero-point missing submissions. */
+  questionResults(): QuestionResults[] {
+    return this.data.questions.map((question, index) => ({
+      question,
+      deadlineAt:
+        (
+          this.db
+            .prepare('SELECT endsAt FROM question_windows WHERE questionId=?')
+            .get(question.id) as { endsAt: number | null } | undefined
+        )?.endsAt ?? null,
+      revealed: this.isRevealed(index),
+      results: this.results(question.id),
+    }));
   }
   private finalize(question = this.question): void {
     if (!question) return;
+    this.db.prepare('DELETE FROM scores WHERE questionId=?').run(question.id);
     const answers = this.db
       .prepare('SELECT participantId,text FROM answers WHERE questionId=?')
       .all(question.id) as { participantId: string; text: string }[];
@@ -183,6 +223,10 @@ export class Contest {
     for (const result of scoreQuestion(answers, question.correct)) {
       save.run(result.participantId, question.id, result.score);
     }
+    this.db
+      .prepare(`INSERT OR IGNORE INTO scores
+      SELECT id,?,0 FROM participants`)
+      .run(question.id);
   }
   private rebuildScores(): void {
     const currentFinalized = ['results', 'finished'].includes(this.state.phase);
@@ -231,17 +275,19 @@ export class Contest {
   }
   private results(id: string): Result[] {
     return this.db
-      .prepare(`SELECT p.id AS participantId,p.nickname,a.text AS answer,s.score
+      .prepare(`SELECT p.id AS participantId,p.nickname,a.text AS answer,COALESCE(s.score,0) AS score
       FROM participants p LEFT JOIN answers a ON a.participantId=p.id AND a.questionId=?
       LEFT JOIN scores s ON s.participantId=p.id AND s.questionId=? ORDER BY p.nickname,p.id`)
       .all(id, id) as Result[];
   }
-  private standings(): Standing[] {
-    return this.db
-      .prepare(`SELECT p.id AS participantId,p.nickname,SUM(s.score) AS score
+  standings(): Standing[] {
+    return competitionPlaces(
+      this.db
+        .prepare(`SELECT p.id AS participantId,p.nickname,COALESCE(SUM(s.score),0) AS score
       FROM participants p LEFT JOIN scores s ON s.participantId=p.id
       GROUP BY p.id ORDER BY score DESC,p.nickname,p.id`)
-      .all() as Standing[];
+        .all() as Omit<Standing, 'place'>[],
+    );
   }
 }
 function deadlineReached(deadline: number | null, now: number): boolean {
@@ -264,15 +310,8 @@ function validateConfiguration(config: Config, questions: Question[]): void {
   for (const question of questions) validateQuestion(question, config.maxAnswer);
 }
 function validateTiming(config: Config): void {
-  if (
-    !integer(config.durationSeconds, 1, 86400) ||
-    !integer(config.graceSeconds, 0, 60) ||
-    !['strict', 'grace'].includes(config.latePolicy)
-  )
+  if (!integer(config.durationSeconds, 1, 86400) || !integer(config.revealDelaySeconds, 1, 60))
     throw new Error('Nieprawidłowy czas konkursu.');
-  if (config.resultsSeconds !== null && !integer(config.resultsSeconds, 15, 86400)) {
-    throw new Error('Wyniki muszą być widoczne przez co najmniej 15 sekund.');
-  }
 }
 function validateQuestion(q: Question, maximum: string): void {
   if (!q || typeof q.text !== 'string' || !q.text.trim() || q.text.length > 2000)

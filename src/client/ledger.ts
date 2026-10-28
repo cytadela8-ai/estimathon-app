@@ -2,7 +2,7 @@
  * Storage-first draft ledger independent of Svelte and transport.
  * Text drafts and the latest unacknowledged valid edit have separate storage keys.
  */
-import type { Answer, Operation, Receipt } from '#est-shared/protocol';
+import type { Answer, Operation, Receipt, InputTiming } from '#est-shared/protocol';
 import { compareOperations, isPositiveInteger } from '#est-shared/protocol';
 export interface Draft {
   operation: Operation;
@@ -59,7 +59,13 @@ export class Ledger {
     // Retain the previous valid edit before replacing its visible draft with intermediate text.
     this.storage.setItem(key, JSON.stringify(draft));
   }
-  edit(questionId: string, text: string, operationId: string, knownRevision = 0): Draft {
+  edit(
+    questionId: string,
+    text: string,
+    operationId: string,
+    knownRevision = 0,
+    timing?: InputTiming,
+  ): Draft {
     const previous = this.read(questionId);
     if (previous) this.stash(previous);
     const draft: Draft = {
@@ -68,6 +74,7 @@ export class Ledger {
         text,
         operationId,
         revision: Math.max(previous?.operation.revision ?? 0, knownRevision) + 1,
+        ...(timing ? { timing } : {}),
       },
       pending: true,
       error: null,
@@ -92,6 +99,16 @@ export class Ledger {
     const current = this.read(answer.questionId);
     if (current && compareOperations(current.operation, answer) > 0) return;
     this.write({ operation: answer, pending: false, error: null });
+  }
+  /** Apply an authoritative snapshot, allowing moderation to remove or revert confirmed answers. */
+  authoritative(questionId: string, answer: Answer | undefined): void {
+    const current = this.read(questionId);
+    if (current?.pending || current?.error) {
+      if (answer) this.remote(answer);
+      return;
+    }
+    if (answer) this.write({ operation: answer, pending: false, error: null });
+    else this.storage.removeItem(this.key(questionId));
   }
   receipt(receipt: Receipt, questionId: string): void {
     if (receipt.status === 'paused') return;

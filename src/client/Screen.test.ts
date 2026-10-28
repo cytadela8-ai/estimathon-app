@@ -23,7 +23,7 @@ function snapshot(): Snapshot {
     answerCount: 1,
     correct: '40075',
     results: [{ participantId: 'p', nickname: 'Ania', answer: '42000', score: 10 }],
-    standings: [{ participantId: 'p', nickname: 'Ania', score: 10 }],
+    standings: [{ participantId: 'p', nickname: 'Ania', score: 10, place: 1 }],
   };
 }
 function show(value: Snapshot): string {
@@ -110,14 +110,31 @@ describe('projector presentation', () => {
     expect(show(value)).toContain('Brak sklasyfikowanych wyników.');
     expect(show(value)).not.toContain('Punktacja oczekuje');
   });
-  it('includes unranked participants in the complete final results', () => {
+  it('includes zero-point participants in the complete final results', () => {
     const value = snapshot();
     value.state.phase = 'finished';
-    value.standings.push({ participantId: 'none', nickname: 'Bez odpowiedzi', score: null });
-    expect(show(value)).not.toContain('Bez odpowiedzi');
+    value.standings.push({ participantId: 'none', nickname: 'Bez odpowiedzi', score: 0, place: 2 });
+    expect(show(value)).not.toContain('scrolling-results');
     vi.setSystemTime(17000);
     const html = show(value);
     expect(html).toContain('Bez odpowiedzi');
-    expect(html).toContain('Bez klasyfikacji');
+    expect(html).toContain('0 pkt');
   });
+});
+
+it('groups all tied winners on the same podium step and skips second place', () => {
+  const value = snapshot();
+  value.state.phase = 'finished';
+  value.standings = [
+    { participantId: 'a', nickname: 'Ania', score: 1000, place: 1 },
+    { participantId: 'b', nickname: 'Bartek', score: 1000, place: 1 },
+    { participantId: 'c', nickname: 'Celina', score: 500, place: 3 },
+  ];
+  const html = show(value);
+  expect(html).toContain('Ania');
+  expect(html).toContain('Bartek');
+  expect(html).toContain('Celina');
+  expect(html).toContain('data-place="1"');
+  expect(html).not.toContain('data-place="2"');
+  expect(html).toContain('data-place="3"');
 });

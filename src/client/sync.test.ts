@@ -159,3 +159,30 @@ describe('answer acknowledgments', () => {
     expect(get(sync.client)).toMatchObject({ pending: false, error: null, confirmed: '1' });
   });
 });
+
+it('records phone input time and its locally estimated deadline before sending', () => {
+  sync.client.update((value) => ({ ...value, offset: 250 }));
+  sync.edit('123');
+  expect(sent[0]!.operation.timing).toEqual({ inputAt: 1000, endsAt: 180750, offsetMs: 250 });
+  expect(sent[0]!.persisted?.timing).toEqual(sent[0]!.operation.timing);
+});
+it('refuses local edits at the deadline but keeps retrying the last offline operation', () => {
+  sync.edit('123');
+  sent[0]!.ack(new Error('Disconnected'));
+  vi.setSystemTime(181000);
+  sync.edit('999');
+  expect(get(sync.client).text).toBe('123');
+  vi.advanceTimersByTime(1500);
+  expect(sent[1]!.operation.text).toBe('123');
+});
+it('accepts host exclusion and restored older server answers without losing newer pending edits', () => {
+  sync.edit('123');
+  confirm(sent[0]!);
+  handlers.get('answers')!([]);
+  expect(get(sync.client)).toMatchObject({ confirmed: null, text: '' });
+  handlers.get('answers')!([{ ...accepted(sent[0]!), revision: 0, text: '12' }]);
+  expect(get(sync.client)).toMatchObject({ confirmed: '12', text: '12' });
+  sync.edit('999');
+  handlers.get('answers')!([]);
+  expect(get(sync.client)).toMatchObject({ confirmed: null, text: '999', pending: true });
+});
