@@ -16,6 +16,7 @@
   const editable = $derived(
     phase === 'active' && (snapshot?.state.endsAt ?? 0) > Date.now() + $client.offset,
   );
+  const invalidDraft = $derived(!!$client.text && !/^(0*[1-9]\d*)$/.test($client.text));
   async function join(recover = false) {
     busy = true;
     error = '';
@@ -189,13 +190,11 @@
             <div class="sync-status" aria-live="polite">
               <span class="live-dot" class:offline={!$client.connected || $client.pending}
               ></span>{#if $client.error}{$client.error}{:else if !$client.connected}Brak połączenia
-                · zapisane zmiany czekają na synchronizację{:else if $client.pending}Zapisano
-                lokalnie · oczekiwanie na synchronizację{:else if $client.text}Zapisano na serwerze{:else}Twoja
+                · oczekiwanie na synchronizację{:else if $client.pending}Zapisano lokalnie ·
+                oczekiwanie na synchronizację{:else if $client.text}Zapisano na serwerze{:else}Twoja
                 odpowiedź zapisze się automatycznie{/if}
             </div>
-            {#if ($client.text && !/^\d+$/.test($client.text)) || ($client.text && /^0+$/.test($client.text))}<p
-                class="error"
-              >
+            {#if invalidDraft}<p class="error">
                 Wpisz dodatnią liczbę całkowitą. Poprzednia poprawna odpowiedź pozostaje na
                 serwerze.
               </p>{/if}

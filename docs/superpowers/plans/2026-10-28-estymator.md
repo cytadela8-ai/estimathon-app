@@ -25,18 +25,22 @@ Revision and operation ID form a deterministic total order across tabs.
 
 ## Milestones
 
-- [ ] Tooling: exact dependencies, strict TypeScript, oxlint/oxfmt, Vitest.
-- [ ] Durable engine: `src/server/database.ts`, `contest.ts`, `answers.ts`;
+- [x] Tooling: exact dependencies, strict TypeScript, oxlint/oxfmt, Vitest.
+- [x] Durable engine: `src/server/database.ts`, `contest.ts`, `answers.ts`;
       protocol in `src/shared/protocol.ts`, score hook in `scoring.ts`.
       Verify out-of-order/duplicate operations, cutoff, pause/resume, restart and 300 answers.
-- [ ] Transport: `src/server/app.ts`, `index.ts`; authenticated admin HTTP routes,
+- [x] Transport: `src/server/app.ts`, `index.ts`; authenticated admin HTTP routes,
       participant recovery, Socket.IO snapshots and committed answer acknowledgments.
       Verify API authentication, public redaction and reconnection.
-- [ ] Client sync: `src/client/sync.ts`; synchronous local writes, retry/reconcile,
+- [x] Client sync: `src/client/sync.ts`; synchronous local writes, retry/reconcile,
       storage events, clock offset estimation. Verify lost ack, refresh and stale snapshots.
-- [ ] Views: `App.svelte`, `Play.svelte`, `Screen.svelte`, `Admin.svelte`, `style.css`;
+- [x] Views: `App.svelte`, `Play.svelte`, `Screen.svelte`, `Admin.svelte`, `style.css`;
       mobile play, staged projector reveal and admin question/config/recovery tools.
-- [ ] Delivery: README operational instructions, `.env.example`, production build,
+- [x] Delivery: README operational instructions, `.env.example`, production build,
       type/lint/tests and HTTP/Socket.IO integration checks. Commit verified milestones.
 
 Implement directly in the authorized master workspace. No deployment or external writes.
+
+Validation: 32 passing tests, including 300 concurrent Socket.IO clients; clean lint,
+strict type checks and production build. Browser lifecycle checks documented in README.md.
+Scoring policy and optional HTTPS/PWA remain organizer configuration, as specified.

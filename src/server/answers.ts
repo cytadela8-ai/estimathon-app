@@ -1,4 +1,6 @@
-/** Atomic answer ledger: idempotency receipts and a deterministic revision order share one commit. */
+/**
+ * Atomic answer ledger: idempotency receipts and a deterministic revision order share one commit.
+ */
 import type Database from 'better-sqlite3';
 import type { Operation, Answer, Receipt } from '#est-shared/protocol';
 import { compareOperations, validNumber } from '#est-shared/protocol';

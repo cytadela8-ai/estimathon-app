@@ -1,4 +1,6 @@
-/** Persisted contest state machine; timestamps, acceptance and result disclosure are server-owned. */
+/**
+ * Persisted contest state machine; timestamps, acceptance and result disclosure are server-owned.
+ */
 import type Database from 'better-sqlite3';
 import { randomUUID } from 'node:crypto';
 import type {

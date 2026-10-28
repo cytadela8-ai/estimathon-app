@@ -1,4 +1,7 @@
-/** Storage-first draft ledger independent of Svelte and transport. One key per question isolates tabs. */
+/**
+ * Storage-first draft ledger independent of Svelte and transport.
+ * One key per question isolates tabs.
+ */
 import type { Answer, Operation, Receipt } from '#est-shared/protocol';
 import { compareOperations } from '#est-shared/protocol';
 export interface Draft {

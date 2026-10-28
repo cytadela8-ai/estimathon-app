@@ -23,6 +23,12 @@
   let qrName = $state('');
   let manualResults = $state(true);
   const phase = $derived($client.snapshot?.state.phase ?? 'lobby');
+  const sections = [
+    ['contest', 'Przebieg konkursu'],
+    ['questions', 'Pytania i ustawienia'],
+    ['people', 'Uczestnicy'],
+    ['answers', 'Odpowiedzi'],
+  ];
   const labels: Record<string, string> = {
     lobby: 'Oczekiwanie',
     active: 'Pytanie trwa',
@@ -108,12 +114,17 @@
     try {
       const data = JSON.parse(await file.text());
       if (!Array.isArray(data)) throw new Error('Plik musi zawierać tablicę pytań.');
-      questions = data.map((q) => ({
-        id: '',
-        text: q.text,
-        correct: String(q.correct),
-        seconds: q.seconds ?? config?.durationSeconds ?? 180,
-      }));
+      questions = data.map((q) => {
+        if (!q || typeof q.correct !== 'string' || typeof q.text !== 'string') {
+          throw new Error('Każde pytanie wymaga tekstowych pól text i correct.');
+        }
+        return {
+          id: '',
+          text: q.text,
+          correct: q.correct,
+          seconds: q.seconds ?? config?.durationSeconds ?? 180,
+        };
+      });
       notice = 'Wczytano pytania. Zapisz konfigurację, aby je zatwierdzić.';
     } catch (e) {
       error = (e as Error).message;
@@ -194,7 +205,7 @@
         <div><small>POZOSTAŁY CZAS</small><Timer /></div>
       </div>
       <nav class="tabs" aria-label="Sekcje panelu">
-        {#each [['contest', 'Przebieg konkursu'], ['questions', 'Pytania i ustawienia'], ['people', 'Uczestnicy'], ['answers', 'Odpowiedzi']] as item}<button
+        {#each sections as item}<button
             class:chosen={tab === item[0]}
             onclick={() => (tab = item[0]!)}>{item[1]}</button
           >{/each}
@@ -208,7 +219,7 @@
           <p>
             {phase === 'lobby'
               ? 'Dodaj pytania w ustawieniach, a następnie rozpocznij konkurs.'
-              : 'Zmiany przebiegu konkursu są automatycznie synchronizowane na wszystkich urządzeniach.'}
+              : 'Przebieg konkursu aktualizuje się automatycznie na wszystkich urządzeniach.'}
           </p>
           <div class="actions">
             <button

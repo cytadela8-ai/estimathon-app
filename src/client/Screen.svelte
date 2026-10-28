@@ -9,6 +9,7 @@
   });
   const s = $derived($client.snapshot);
   const phase = $derived(s?.state.phase ?? 'lobby');
+  const questionNumber = $derived(String((s?.state.index ?? 0) + 1).padStart(2, '0'));
   const elapsed = $derived(now + $client.offset - (s?.state.resultsAt ?? now));
   const submitted = $derived((s?.results ?? []).filter((r) => r.answer !== null));
   const maximum = $derived(Math.max(1, ...submitted.map((r) => Math.log10(Number(r.answer) + 1))));
@@ -46,10 +47,7 @@
       </div>
     {:else if phase === 'active' || phase === 'paused'}<div class="screen-question">
         <div class="mini-label">
-          PYTANIE {String((s?.state.index ?? 0) + 1).padStart(2, '0')} / {s?.totalQuestions}{phase ===
-          'paused'
-            ? ' · PRZERWA'
-            : ''}
+          PYTANIE {questionNumber} / {s?.totalQuestions}{phase === 'paused' ? ' · PRZERWA' : ''}
         </div>
         <h1>{s?.question?.text}</h1>
         <div class="screen-timer"><Timer /></div>

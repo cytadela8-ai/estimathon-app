@@ -1,4 +1,6 @@
-/** Opaque persistent participant credentials; recovery codes are high-entropy bearer credentials. */
+/**
+ * Opaque persistent participant credentials; recovery codes are high-entropy bearer credentials.
+ */
 import { randomBytes, randomUUID } from 'node:crypto';
 import type Database from 'better-sqlite3';
 import type { Participant, Session } from '#est-shared/protocol';

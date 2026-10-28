@@ -1,4 +1,6 @@
-/** Reliable browser synchronization: storage before emit, retries, snapshots and clock estimation. */
+/**
+ * Reliable browser synchronization: storage before emit, retries, snapshots and clock estimation.
+ */
 import { io, type Socket } from 'socket.io-client';
 import { writable } from 'svelte/store';
 import type {
