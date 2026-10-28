@@ -1,17 +1,8 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { now, remainingMilliseconds } from '#est-client/clock';
   import { client } from '#est-client/sync';
-  let now = $state(Date.now());
-  onMount(() => {
-    const timer = setInterval(() => (now = Date.now()), 100);
-    return () => clearInterval(timer);
-  });
   const contestState = $derived($client.snapshot?.state);
-  const remaining = $derived(
-    contestState?.phase === 'paused'
-      ? contestState.remainingMs
-      : Math.max(0, (contestState?.endsAt ?? now) - now - $client.offset),
-  );
+  const remaining = $derived(remainingMilliseconds(contestState, $now, $client.offset));
   const seconds = $derived(Math.ceil(remaining / 1000));
 </script>
 

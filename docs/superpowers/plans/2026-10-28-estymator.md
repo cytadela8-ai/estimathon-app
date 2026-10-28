@@ -44,3 +44,13 @@ Implement directly in the authorized master workspace. No deployment or external
 Validation: 32 passing tests, including 300 concurrent Socket.IO clients; clean lint,
 strict type checks and production build. Browser lifecycle checks documented in README.md.
 Scoring policy and optional HTTPS/PWA remain organizer configuration, as specified.
+
+## Reliability follow-up
+
+- [x] Retain the latest valid unacknowledged edit separately from intermediate editing text.
+- [x] Settle queued receipts without overwriting a later empty draft.
+- [x] Share a reactive clock across input locking, countdown and projector reveal stages.
+- [x] Verify no-deadline and paused clocks, retry recovery and delayed acknowledgments.
+- [x] Browser-check offline edit/clear/close/reopen and disconnected deadline locking.
+
+Follow-up validation: 44 passing tests; clean lint, type checks and production build.

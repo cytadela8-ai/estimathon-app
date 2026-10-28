@@ -1,5 +1,7 @@
 <script lang="ts">
+  import { now, remainingMilliseconds } from '#est-client/clock';
   import { client, edit, api, setSession } from '#est-client/sync';
+  import { isPositiveInteger } from '#est-shared/protocol';
   import type { Session } from '#est-shared/protocol';
   import Timer from '#est-client/Timer.svelte';
   let firstName = $state('');
@@ -14,9 +16,9 @@
   const snapshot = $derived($client.snapshot);
   const phase = $derived(snapshot?.state.phase ?? 'lobby');
   const editable = $derived(
-    phase === 'active' && (snapshot?.state.endsAt ?? 0) > Date.now() + $client.offset,
+    phase === 'active' && remainingMilliseconds(snapshot?.state, $now, $client.offset) > 0,
   );
-  const invalidDraft = $derived(!!$client.text && !/^(0*[1-9]\d*)$/.test($client.text));
+  const invalidDraft = $derived(!!$client.text && !isPositiveInteger($client.text));
   async function join(recover = false) {
     busy = true;
     error = '';
@@ -190,7 +192,8 @@
             <div class="sync-status" aria-live="polite">
               <span class="live-dot" class:offline={!$client.connected || $client.pending}
               ></span>{#if $client.error}{$client.error}{:else if !$client.connected}Brak połączenia
-                · oczekiwanie na synchronizację{:else if $client.pending}Zapisano lokalnie ·
+                · oczekiwanie na synchronizację{:else if $client.pending && (!$client.text || invalidDraft)}Zapisano
+                szkic lokalnie · wpisz poprawną liczbę{:else if $client.pending}Zapisano lokalnie ·
                 oczekiwanie na synchronizację{:else if $client.text}Zapisano na serwerze{:else}Twoja
                 odpowiedź zapisze się automatycznie{/if}
             </div>

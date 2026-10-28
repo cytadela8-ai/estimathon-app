@@ -90,7 +90,11 @@ export function compareOperations(a: Operation, b: Operation): number {
   if (a.revision !== b.revision) return a.revision - b.revision;
   return a.operationId < b.operationId ? -1 : Number(a.operationId > b.operationId);
 }
+/** Check an editable number without converting its textual representation. */
+export function isPositiveInteger(text: string): boolean {
+  return /^\d{1,100}$/.test(text) && BigInt(text) > 0n;
+}
 /** Preserve editing text but validate the normalized integer with arbitrary precision. */
 export function validNumber(text: string, maximum: string): boolean {
-  return /^\d{1,100}$/.test(text) && BigInt(text) > 0n && BigInt(text) <= BigInt(maximum);
+  return isPositiveInteger(text) && BigInt(text) <= BigInt(maximum);
 }

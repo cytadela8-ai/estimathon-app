@@ -5,6 +5,9 @@ import type { Answer } from '#est-shared/protocol';
 function setup() {
   const data = new Map<string, string>();
   const storage = {
+    removeItem: (key: string) => {
+      data.delete(key);
+    },
     getItem: (k: string) => data.get(k) ?? null,
     setItem: (k: string, v: string) => {
       data.set(k, v);
@@ -82,6 +85,9 @@ describe('storage-first reconciliation', () => {
     const ledger = new Ledger(
       {
         getItem: () => null,
+        removeItem: () => {
+          throw new Error('Storage full');
+        },
         setItem: () => {
           throw new Error('Storage full');
         },
@@ -89,5 +95,70 @@ describe('storage-first reconciliation', () => {
       'p',
     );
     expect(() => ledger.edit('q', '42', 'op')).toThrow('Storage full');
+  });
+});
+
+describe('pending valid edits and intermediate drafts', () => {
+  it.each(['', '-', '1e', '0'])(
+    'retains a valid offline edit when the draft becomes %j',
+    (text) => {
+      const { ledger, storage } = setup();
+      const valid = ledger.edit('q', '123', 'offline-valid-operation');
+      ledger.edit('q', text, 'intermediate-operation');
+      const reopened = new Ledger(storage, 'person');
+      expect(reopened.read('q')?.operation.text).toBe(text);
+      expect(reopened.pendingOperation('q')).toEqual(valid.operation);
+    },
+  );
+  it('settles an earlier valid edit without replacing the current empty draft', () => {
+    const { ledger } = setup();
+    const valid = ledger.edit('q', '123', 'offline-valid-operation');
+    ledger.edit('q', '', 'intermediate-operation');
+    const accepted = { ...answer(1), ...valid.operation };
+    ledger.receipt(
+      { operationId: valid.operation.operationId, status: 'accepted', answer: accepted },
+      'q',
+    );
+    expect(ledger.pendingOperation('q')).toBeNull();
+    expect(ledger.read('q')?.operation.text).toBe('');
+    ledger.remote(accepted);
+    expect(ledger.read('q')?.operation.text).toBe('');
+  });
+  it('retries only the latest valid operation through repeated intermediate drafts', () => {
+    const { ledger } = setup();
+    ledger.edit('q', '1', 'first-valid-operation');
+    ledger.edit('q', '', 'first-empty-operation');
+    const latest = ledger.edit('q', '123', 'latest-valid-operation');
+    ledger.edit('q', '-', 'invalid-operation');
+    ledger.edit('q', '', 'last-empty-operation');
+    expect(ledger.pendingOperation('q')).toEqual(latest.operation);
+  });
+  it('does not let an old acknowledgment clear a newer queued valid edit', () => {
+    const { ledger } = setup();
+    const old = ledger.edit('q', '1', 'old-valid-operation');
+    ledger.edit('q', '', 'first-empty-operation');
+    const latest = ledger.edit('q', '12', 'latest-valid-operation');
+    ledger.edit('q', '', 'last-empty-operation');
+    ledger.receipt(
+      {
+        operationId: old.operation.operationId,
+        status: 'accepted',
+        answer: { ...answer(1), ...old.operation },
+      },
+      'q',
+    );
+    expect(ledger.pendingOperation('q')).toEqual(latest.operation);
+  });
+  it('reports a rejected queued answer while keeping the intermediate draft intact', () => {
+    const { ledger } = setup();
+    const valid = ledger.edit('q', '123', 'offline-valid-operation');
+    ledger.edit('q', '', 'intermediate-operation');
+    ledger.receipt(
+      { operationId: valid.operation.operationId, status: 'closed', answer: null },
+      'q',
+    );
+    expect(ledger.pendingOperation('q')).toBeNull();
+    expect(ledger.read('q')?.operation.text).toBe('');
+    expect(ledger.read('q')?.error).toContain('Czas minął');
   });
 });

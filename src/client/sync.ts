@@ -11,7 +11,7 @@ import type {
   Answer,
   Operation,
 } from '#est-shared/protocol';
-import { compareOperations } from '#est-shared/protocol';
+import { compareOperations, isPositiveInteger } from '#est-shared/protocol';
 import { Ledger } from '#est-client/ledger';
 export interface ClientState {
   session: Session | null;
@@ -102,17 +102,10 @@ function flush(): void {
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (!key?.startsWith(prefix)) continue;
-      const draft = ledger.read(key.slice(prefix.length));
-      if (draft && sendable(draft)) {
-        send(draft.operation);
-      }
+      const operation = ledger.pendingOperation(key.slice(prefix.length));
+      if (operation) send(operation);
     }
   });
-}
-function sendable(draft: import('#est-client/ledger').Draft): boolean {
-  return (
-    draft.pending && /^\d{1,100}$/.test(draft.operation.text) && BigInt(draft.operation.text) > 0n
-  );
 }
 export function edit(text: string): void {
   const question = current.snapshot?.question;
@@ -127,7 +120,7 @@ export function edit(text: string): void {
       confirmed.get(question.id)?.revision ?? 0,
     );
     refreshDraft();
-    if (/^\d{1,100}$/.test(text) && BigInt(text) > 0n) send(draft.operation);
+    if (isPositiveInteger(text)) send(draft.operation);
   });
 }
 function cryptoId(): string {

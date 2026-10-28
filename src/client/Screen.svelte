@@ -1,16 +1,11 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { now } from '#est-client/clock';
   import { client } from '#est-client/sync';
   import Timer from '#est-client/Timer.svelte';
-  let now = $state(Date.now());
-  onMount(() => {
-    const t = setInterval(() => (now = Date.now()), 100);
-    return () => clearInterval(t);
-  });
   const s = $derived($client.snapshot);
   const phase = $derived(s?.state.phase ?? 'lobby');
   const questionNumber = $derived(String((s?.state.index ?? 0) + 1).padStart(2, '0'));
-  const elapsed = $derived(now + $client.offset - (s?.state.resultsAt ?? now));
+  const elapsed = $derived($now + $client.offset - (s?.state.resultsAt ?? $now));
   const submitted = $derived((s?.results ?? []).filter((r) => r.answer !== null));
   const maximum = $derived(Math.max(1, ...submitted.map((r) => Math.log10(Number(r.answer) + 1))));
   const ranked = $derived((s?.standings ?? []).filter((r) => r.score !== null));

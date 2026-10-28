@@ -89,7 +89,8 @@ for configured scores. No provisional points formula is silently applied.
    Delayed older operations cannot overwrite the latest accepted operation.
 4. Unacknowledged edits retry every 1.5 seconds; acknowledgment timeout is 2 seconds. Reconnection
    fetches an authoritative snapshot and the participant's accepted answers before retrying.
-5. Local drafts are stored per participant and question. An older server snapshot cannot overwrite
+5. Local drafts and a separate retry record for the latest valid edit are stored per participant
+   and question. Clearing the field or typing intermediate text preserves that retry record. An older server snapshot cannot overwrite
    a newer local draft. Storage events coordinate tabs; server broadcasts accepted answers only to
    sockets belonging to that participant. Truly simultaneous edits use the tie rule above.
 6. Rejected late drafts remain locally available with an explicit error. The last accepted server
@@ -105,7 +106,8 @@ Server events never expose current submissions or correct answers publicly while
 possible. Host-only APIs may inspect live answers. Broadcast counts are coalesced to at most ten
 updates per second, not one broadcast per keystroke per participant. Countdown uses an absolute
 server deadline with a midpoint clock-offset estimate refreshed every 15 seconds and on reconnect;
-remaining time is not broadcast every second.
+remaining time is not broadcast every second. A shared browser clock also disables the answer
+input at the deadline while disconnected, and returns zero when no deadline exists.
 
 ## Deadlines, restart and presentation
 
@@ -160,7 +162,8 @@ pnpm audit --prod --audit-level=moderate
 
 Tests exercise duplicate IDs, delayed operations, equal-revision tabs, invalid input, deadlines,
 grace acceptance, pause/resume, automatic progression, scoring integration, process reopening,
-stale snapshots, browser-storage failure, account recovery, admin protection and a 300-client
+stale snapshots, valid edits followed by intermediate drafts, disconnected countdowns,
+browser-storage failure, account recovery, admin protection and a 300-client
 simultaneous Socket.IO burst. This loopback test does not establish capacity of a venue's Wi-Fi.
 Run a rehearsal with representative devices and the actual access point before the event.
 
@@ -168,6 +171,8 @@ Browser checks performed on a 390px viewport: registration, refresh restoration,
 and reconnect, two-tab synchronization, host login/pause/resume/close, and staged projector results.
 No uncaught application errors or horizontal overflow were observed in these flows.
 Also checked host re-login after server restart, recovery QR generation and final results.
+Follow-up browser checks confirmed that an offline valid edit survives clearing the field and
+closing/reopening its tab, while the empty draft remains intact; disconnected input locks at zero.
 Reversing the revision comparison deliberately failed the out-of-order regression test; the
 original implementation was then restored and the full suite passed.
 
