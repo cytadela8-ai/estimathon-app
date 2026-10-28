@@ -35,20 +35,10 @@ export class AnswerStore {
       status: 'accepted',
       answer: answer ?? null,
     };
-    const state = this.contest.state;
-    if (state.phase === 'paused' && op.questionId === this.contest.question?.id) {
-      return { ...receipt, status: 'paused' };
-    }
-    if (
-      op.questionId !== this.contest.question?.id ||
-      !['active', 'closing'].includes(state.phase) ||
-      now >= (state.closesAt ?? 0)
-    ) {
-      receipt.status = 'closed';
-    } else if (!validNumber(op.text, this.contest.data.config.maxAnswer))
-      receipt.status = 'invalid';
-    else if (answer && compareOperations(op, answer) <= 0) receipt.status = 'stale';
-    else {
+    const status = this.status(op, answer, now);
+    if (status === 'paused') return { ...receipt, status };
+    receipt.status = status;
+    if (status === 'accepted') {
       receipt.answer = { ...op, participantId, acceptedAt: now };
       this.db
         .prepare(`INSERT OR REPLACE INTO answers
@@ -60,6 +50,19 @@ export class AnswerStore {
       .run(participantId, op.operationId, payload, JSON.stringify(receipt));
     return receipt;
   }
+  private accepts(now: number): boolean {
+    const state = this.contest.state;
+    return ['active', 'closing'].includes(state.phase) && now < (state.closesAt ?? 0);
+  }
+  private status(op: Operation, answer: Answer | undefined, now: number): Receipt['status'] {
+    if (op.questionId !== this.contest.question?.id) return 'closed';
+    const state = this.contest.state;
+    if (state.phase === 'paused') return 'paused';
+    if (!this.accepts(now)) return 'closed';
+    if (!validNumber(op.text, this.contest.data.config.maxAnswer)) return 'invalid';
+    if (answer && compareOperations(op, answer) <= 0) return 'stale';
+    return 'accepted';
+  }
 }
 function isOperation(op: Operation): boolean {
   return (
@@ -68,6 +71,12 @@ function isOperation(op: Operation): boolean {
     op.questionId.length <= 100 &&
     typeof op.operationId === 'string' &&
     /^[a-zA-Z0-9-]{16,100}$/.test(op.operationId) &&
+    validValue(op)
+  );
+}
+
+function validValue(op: Operation): boolean {
+  return (
     Number.isSafeInteger(op.revision) &&
     op.revision > 0 &&
     typeof op.text === 'string' &&

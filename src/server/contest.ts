@@ -74,37 +74,22 @@ export class Contest {
     const state = this.state;
     switch (command) {
       case 'start':
-        if (state.phase !== 'lobby' || !this.data.questions.length)
-          throw new Error('Dodaj pytania przed startem.');
-        this.begin(0, now);
+        this.start(now);
         break;
       case 'pause':
-        if (state.phase !== 'active') throw new Error('Pytanie nie jest aktywne.');
-        state.remainingMs = Math.max(0, (state.endsAt ?? now) - now);
-        state.phase = 'paused';
-        state.endsAt = null;
-        state.closesAt = null;
+        this.pause(now);
         break;
       case 'resume':
-        if (state.phase !== 'paused') throw new Error('Konkurs nie jest wstrzymany.');
-        state.phase = 'active';
-        this.setDeadline(now + state.remainingMs);
+        this.resume(now);
         break;
       case 'extend':
-        if (state.phase === 'paused') state.remainingMs += 30_000;
-        else if (state.phase === 'active') this.setDeadline((state.endsAt ?? now) + 30_000);
-        else throw new Error('Czas można dodać podczas pytania.');
+        this.extend(now);
         break;
       case 'next':
-        if (state.phase === 'active' || state.phase === 'paused') {
-          state.phase = 'closing';
-          this.setDeadline(now);
-        } else if (state.phase === 'results') this.begin(state.index + 1, now);
-        else throw new Error('Poczekaj na zamknięcie odpowiedzi.');
+        this.next(now);
         break;
       case 'finish':
-        if (state.phase !== 'results') throw new Error('Zakończ po ujawnieniu wyników pytania.');
-        state.phase = 'finished';
+        this.finish(now);
         break;
       default:
         throw new Error('Nieznane polecenie.');
@@ -112,6 +97,40 @@ export class Contest {
     state.version++;
     this.persist();
     this.tick(now);
+  }
+  private start(now: number): void {
+    if (this.state.phase !== 'lobby' || !this.data.questions.length)
+      throw new Error('Dodaj pytania przed startem.');
+    this.begin(0, now);
+  }
+  private pause(now: number): void {
+    if (this.state.phase !== 'active') throw new Error('Pytanie nie jest aktywne.');
+    this.state.remainingMs = Math.max(0, (this.state.endsAt ?? now) - now);
+    this.state.phase = 'paused';
+    this.state.endsAt = null;
+    this.state.closesAt = null;
+  }
+  private resume(now: number): void {
+    if (this.state.phase !== 'paused') throw new Error('Konkurs nie jest wstrzymany.');
+    this.state.phase = 'active';
+    this.setDeadline(now + this.state.remainingMs);
+  }
+  private extend(now: number): void {
+    if (this.state.phase === 'paused') this.state.remainingMs += 30_000;
+    else if (this.state.phase === 'active') this.setDeadline((this.state.endsAt ?? now) + 30_000);
+    else throw new Error('Czas można dodać podczas pytania.');
+  }
+  private next(now: number): void {
+    if (this.state.phase === 'active' || this.state.phase === 'paused') {
+      this.state.phase = 'closing';
+      this.setDeadline(now);
+    } else if (this.state.phase === 'results') this.begin(this.state.index + 1, now);
+    else throw new Error('Poczekaj na zamknięcie odpowiedzi.');
+  }
+  private finish(now: number): void {
+    if (this.state.phase !== 'results') throw new Error('Zakończ po ujawnieniu wyników pytania.');
+    this.state.phase = 'finished';
+    this.state.resultsAt = now;
   }
   private setDeadline(end: number): void {
     this.state.endsAt = end;
@@ -123,6 +142,7 @@ export class Contest {
   private begin(index: number, now: number): void {
     if (index >= this.data.questions.length) {
       this.state.phase = 'finished';
+      this.state.resultsAt = now;
       return;
     }
     Object.assign(this.state, { index, phase: 'active', startedAt: now, resultsAt: null });
@@ -131,11 +151,11 @@ export class Contest {
   tick(now = Date.now()): boolean {
     const previous = this.state.version;
     const state = this.state;
-    if (state.phase === 'active' && now >= (state.endsAt ?? Infinity)) {
+    if (state.phase === 'active' && deadlineReached(state.endsAt, now)) {
       state.phase = 'closing';
       state.version++;
     }
-    if (state.phase === 'closing' && now >= (state.closesAt ?? Infinity) + 2000) {
+    if (state.phase === 'closing' && deadlineReached(state.closesAt, now - 2000)) {
       this.db.transaction(() => {
         this.finalize();
         state.phase = 'results';
@@ -144,17 +164,16 @@ export class Contest {
         this.persist();
       })();
     }
-    const duration = this.data.config.resultsSeconds;
-    if (
-      state.phase === 'results' &&
-      duration !== null &&
-      now >= (state.resultsAt ?? now) + duration * 1000
-    ) {
-      this.begin(state.index + 1, now);
-      state.version++;
-    }
+    this.advanceResults(now);
     if (state.version !== previous) this.persist();
     return state.version !== previous;
+  }
+  private advanceResults(now: number): void {
+    const duration = this.data.config.resultsSeconds;
+    if (this.state.phase !== 'results' || duration === null) return;
+    if (!deadlineReached(this.state.resultsAt, now - duration * 1000)) return;
+    this.begin(this.state.index + 1, now);
+    this.state.version++;
   }
   private finalize(): void {
     const question = this.question;
@@ -172,7 +191,6 @@ export class Contest {
   }
   snapshot(now = Date.now()): Snapshot {
     this.tick(now);
-    const revealed = this.state.phase === 'results' || this.state.phase === 'finished';
     const id = this.question?.id ?? '';
     const participants = this.db.prepare('SELECT count(*) AS n FROM participants').get() as {
       n: number;
@@ -183,14 +201,29 @@ export class Contest {
     return {
       serverNow: now,
       state: { ...this.state },
-      question: this.question ? { id, text: this.question.text } : null,
+      ...this.presentation(id),
       totalQuestions: this.data.questions.length,
       participantCount: participants.n,
       answerCount: answers.n,
-      correct: revealed ? (this.question?.correct ?? null) : null,
-      results: revealed ? this.results(id) : [],
-      standings: revealed ? this.standings() : [],
       scoringConfigured: this.score !== unconfiguredScorer,
+    };
+  }
+  private presentation(
+    id: string,
+  ): Pick<Snapshot, 'question' | 'correct' | 'results' | 'standings'> {
+    const question = this.question;
+    const hidden = {
+      question: question ? { id, text: question.text } : null,
+      correct: null,
+      results: [],
+      standings: [],
+    };
+    if (this.state.phase !== 'results' && this.state.phase !== 'finished') return hidden;
+    return {
+      ...hidden,
+      correct: question?.correct ?? null,
+      results: this.results(id),
+      standings: this.standings(),
     };
   }
   private results(id: string): Result[] {
@@ -208,32 +241,43 @@ export class Contest {
       .all() as Standing[];
   }
 }
+function deadlineReached(deadline: number | null, now: number): boolean {
+  return deadline !== null && now >= deadline;
+}
+function integer(n: number, min: number, max: number): boolean {
+  return Number.isInteger(n) && n >= min && n <= max;
+}
 function validateConfiguration(config: Config, questions: Question[]): void {
-  const integer = (n: number, min: number, max: number) =>
-    Number.isInteger(n) && n >= min && n <= max;
+  if (!config) throw new Error('Brak konfiguracji konkursu.');
+  validateTiming(config);
   if (
-    !config ||
-    !integer(config.durationSeconds, 1, 86400) ||
-    !integer(config.graceSeconds, 0, 60) ||
-    !['strict', 'grace'].includes(config.latePolicy) ||
-    (config.resultsSeconds !== null && !integer(config.resultsSeconds, 15, 86400)) ||
     typeof config.maxAnswer !== 'string' ||
     !/^\d{1,100}$/.test(config.maxAnswer) ||
     BigInt(config.maxAnswer) < 1n
   )
-    throw new Error('Nieprawidłowa konfiguracja konkursu.');
+    throw new Error('Nieprawidłowy zakres odpowiedzi.');
   if (!Array.isArray(questions) || questions.length > 100)
     throw new Error('Maksymalnie 100 pytań.');
-  for (const q of questions) {
-    if (
-      !q ||
-      typeof q.text !== 'string' ||
-      !q.text.trim() ||
-      q.text.length > 2000 ||
-      typeof q.correct !== 'string' ||
-      !validNumber(q.correct, config.maxAnswer) ||
-      !integer(q.seconds, 1, 86400)
-    )
-      throw new Error('Sprawdź treść, odpowiedź i czas pytania.');
+  for (const question of questions) validateQuestion(question, config.maxAnswer);
+}
+function validateTiming(config: Config): void {
+  if (
+    !integer(config.durationSeconds, 1, 86400) ||
+    !integer(config.graceSeconds, 0, 60) ||
+    !['strict', 'grace'].includes(config.latePolicy)
+  )
+    throw new Error('Nieprawidłowy czas konkursu.');
+  if (config.resultsSeconds !== null && !integer(config.resultsSeconds, 15, 86400)) {
+    throw new Error('Wyniki muszą być widoczne przez co najmniej 15 sekund.');
   }
+}
+function validateQuestion(q: Question, maximum: string): void {
+  if (!q || typeof q.text !== 'string' || !q.text.trim() || q.text.length > 2000)
+    throw new Error('Sprawdź treść pytania.');
+  if (
+    typeof q.correct !== 'string' ||
+    !validNumber(q.correct, maximum) ||
+    !integer(q.seconds, 1, 86400)
+  )
+    throw new Error('Sprawdź odpowiedź i czas pytania.');
 }

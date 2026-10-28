@@ -131,3 +131,68 @@ describe('answer ledger', () => {
     expect(f.contest.snapshot(3000).answerCount).toBe(300);
   });
 });
+
+describe('schedule and configuration', () => {
+  it('advances automatically after the configured results interval and finishes', () => {
+    const db = openDatabase(':memory:');
+    databases.push(db);
+    const contest = new Contest(db);
+    contest.configure(
+      {
+        durationSeconds: 1,
+        graceSeconds: 5,
+        latePolicy: 'strict',
+        resultsSeconds: 15,
+        maxAnswer: '1000',
+      },
+      [
+        { id: '', text: 'First', correct: '10', seconds: 1 },
+        { id: '', text: 'Second', correct: '20', seconds: 1 },
+      ],
+    );
+    contest.command('start', 1000);
+    expect(contest.snapshot(4000).state.phase).toBe('results');
+    expect(contest.snapshot(19000).state.index).toBe(1);
+    expect(contest.snapshot(19000).state.phase).toBe('active');
+    expect(contest.snapshot(22000).state.phase).toBe('results');
+    expect(contest.snapshot(37000).state.phase).toBe('finished');
+    expect(contest.state.resultsAt).toBe(37000);
+  });
+  it('uses a supplied scoring function and persists finalized points', () => {
+    const f = setup();
+    const scored = new Contest(f.db, (estimate, correct) => (estimate === correct ? 10 : 0));
+    const store = new AnswerStore(f.db, scored);
+    store.save(f.id, f.operation(1, '100'), 2000);
+    expect(scored.snapshot(183000).standings[0]?.score).toBe(10);
+    expect(new Contest(f.db).snapshot(184000).standings[0]?.score).toBe(10);
+  });
+  it('rejects invalid configuration without changing the contest', () => {
+    const f = setup();
+    expect(() => f.contest.configure(f.contest.data.config, [])).toThrow('przed startem');
+    const fresh = new Contest(openDatabase(':memory:'));
+    databases.push(fresh.db);
+    expect(() => fresh.configure({ ...f.contest.data.config, maxAnswer: '-1' }, [])).toThrow(
+      'zakres',
+    );
+    expect(() => fresh.configure({ ...f.contest.data.config, resultsSeconds: 1 }, [])).toThrow(
+      '15',
+    );
+    expect(fresh.data.questions).toEqual([]);
+  });
+  it('rejects malformed revision and operation IDs without writing answers', () => {
+    const f = setup();
+    expect(f.answers.save(f.id, { ...f.operation(1), revision: -1 }, 2000).status).toBe('invalid');
+    expect(f.answers.save(f.id, { ...f.operation(1), operationId: '' }, 2000).status).toBe(
+      'invalid',
+    );
+    expect(f.answers.all(f.id)).toEqual([]);
+  });
+  it('does not disclose results when the host closes a paused question', () => {
+    const f = setup(':memory:', true);
+    f.contest.command('pause', 2000);
+    f.contest.command('next', 3000);
+    expect(f.contest.snapshot(7999).correct).toBeNull();
+    expect(f.contest.snapshot(9999).correct).toBeNull();
+    expect(f.contest.snapshot(10000).correct).toBe('100');
+  });
+});
