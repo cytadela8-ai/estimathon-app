@@ -295,36 +295,6 @@ summary {
 .recovery-form {
   margin-top: 20px;
 }
-.feature-strip {
-  display: flex;
-  gap: 26px;
-  justify-content: center;
-  margin: 32px -15px 40px;
-}
-.feature-strip > div {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-}
-.feature-strip > div > span {
-  font-size: 24px;
-  color: #80956b;
-  line-height: 1;
-}
-.feature-strip p {
-  line-height: 1.5;
-  margin: 0;
-  font-size: 10px;
-  color: #7d8775;
-}
-.feature-strip strong {
-  display: block;
-  font-size: 10px;
-  color: #54634c;
-}
-.feature-strip small {
-  font-size: 9px;
-}
 footer {
   max-width: 1176px;
   margin: 32px auto 0;
@@ -344,13 +314,6 @@ footer a {
 .footer-cross {
   padding: 0 10px;
   color: #6f8861;
-  font-size: 14px;
-}
-.participant-line {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 26px;
   font-size: 14px;
 }
 .text-button {
@@ -1060,22 +1023,6 @@ td .text-button {
   .card {
     padding: 23px;
   }
-  .feature-strip {
-    gap: 17px;
-    margin: 28px 0;
-  }
-  .feature-strip > div {
-    gap: 7px;
-  }
-  .feature-strip small {
-    font-size: 8px;
-  }
-  .feature-strip strong {
-    font-size: 9px;
-  }
-  .feature-strip > div > span {
-    font-size: 20px;
-  }
   footer {
     margin: 25px 22px 0;
     padding: 18px 0;
@@ -1280,4 +1227,18 @@ td .text-button {
 .provisional {
   font-size: 13px;
   opacity: 0.7;
+}
+
+.top-list .podium-names {
+  --results-window: 90px;
+  width: 100%;
+}
+.top-list .podium-names strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+@media (prefers-reduced-motion: reduce) {
+  .podium-names.many {
+    overflow: auto;
+  }
 }

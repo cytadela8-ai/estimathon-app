@@ -138,3 +138,17 @@ it('groups all tied winners on the same podium step and skips second place', () 
   expect(html).not.toContain('data-place="2"');
   expect(html).toContain('data-place="3"');
 });
+it('retains every participant tied at the fifth place instead of truncating the field', () => {
+  const value = snapshot();
+  value.state.resultsAt = 1000;
+  value.standings = Array.from({ length: 8 }, (_, i) => ({
+    participantId: String(i),
+    nickname: `Tied ${i}`,
+    score: 100,
+    place: 5,
+  }));
+  const html = show(value);
+  expect(html).toContain('Tied 0');
+  expect(html).toContain('Tied 7');
+  expect(html).toContain('8 ex aequo');
+});

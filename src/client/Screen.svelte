@@ -10,6 +10,9 @@
   const submitted = $derived((s?.results ?? []).filter((r) => r.answer !== null));
   const maximum = $derived(Math.max(1, ...submitted.map((r) => Math.log10(Number(r.answer) + 1))));
   const ranked = $derived(s?.standings ?? []);
+  const leaderPlaces = $derived([
+    ...new Set(ranked.filter((person) => person.place <= 5).map((person) => person.place)),
+  ]);
   const bins = $derived(
     Array.from(
       { length: 20 },
@@ -117,13 +120,25 @@
         {#if elapsed > 7000}<section class="screen-leaderboard">
             <h2>Czołówka konkursu <span>Klasyfikacja łączna</span></h2>
             {#if ranked.length}<div class="top-list">
-                {#each ranked.filter((person) => person.place <= 5) as person}<div
-                    class="leader-row"
-                  >
-                    <span class="rank">{String(person.place).padStart(2, '0')}</span><strong
-                      >{person.nickname}</strong
-                    ><span>{person.score?.toLocaleString('pl-PL')} pkt</span>
-                  </div>{/each}
+                {#each leaderPlaces as place}
+                  {@const group = ranked.filter((person) => person.place === place)}
+                  <div class="leader-row">
+                    <span class="rank">{String(place).padStart(2, '0')}</span>
+                    <div class="podium-names" class:many={group.length > 3}>
+                      <div
+                        class:scrolling-results={group.length > 3}
+                        style={`--scroll-duration:${Math.max(20, group.length * 2)}s`}
+                      >
+                        {#each group as person}<strong>{person.nickname}</strong>{/each}
+                      </div>
+                    </div>
+                    <span
+                      >{group[0]!.score.toLocaleString('pl-PL')} pkt
+                      {#if group.length > 1}
+                        · {group.length} ex aequo{/if}</span
+                    >
+                  </div>
+                {/each}
               </div>{:else}<p>Brak sklasyfikowanych wyników.</p>{/if}
           </section>{/if}
       </div>{/if}

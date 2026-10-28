@@ -32,6 +32,12 @@ export function registerRoutes(app: FastifyInstance, context: Context): void {
     answers: db.prepare('SELECT * FROM answers').all(),
   }));
   app.get('/api/admin/results', async () => ({
+    participants: sessions.list().map((p) => ({
+      id: p.id,
+      firstName: p.firstName,
+      lastName: p.lastName,
+      nickname: p.nickname,
+    })),
     questions: contest.questionResults(),
     standings: contest.standings(),
     audit: answers.audit(),

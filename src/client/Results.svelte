@@ -2,9 +2,15 @@
   import { onMount } from 'svelte';
   import { api } from '#est-client/sync';
   import { difference, filterAudit, timestamp } from '#est-client/audit-view';
-  import type { AuditEntry, QuestionResults, Standing } from '#est-shared/protocol';
+  import type { AuditEntry, QuestionResults, Standing, Participant } from '#est-shared/protocol';
   let { token }: { token: string } = $props();
-  let data = $state<{ questions: QuestionResults[]; standings: Standing[]; audit: AuditEntry[] }>({
+  let data = $state<{
+    participants: Participant[];
+    questions: QuestionResults[];
+    standings: Standing[];
+    audit: AuditEntry[];
+  }>({
+    participants: [],
     questions: [],
     standings: [],
     audit: [],
@@ -18,9 +24,24 @@
   let selected = $state<AuditEntry | null>(null);
   let reason = $state('');
   let busy = $state(false);
+  let auditPage = $state(1);
   const rows = $derived(
     filterAudit(data.audit, { questionId, participant, value, lateOnly, minimumSeconds }),
   );
+  const matchingParticipants = $derived(
+    new Set(
+      data.participants
+        .filter((person) =>
+          `${person.firstName} ${person.lastName} ${person.nickname}`
+            .toLocaleLowerCase('pl')
+            .includes(participant.trim().toLocaleLowerCase('pl')),
+        )
+        .map((person) => person.id),
+    ),
+  );
+  const pageCount = $derived(Math.max(1, Math.ceil(rows.length / 100)));
+  const currentPage = $derived(Math.min(auditPage, pageCount));
+  const visibleRows = $derived(rows.slice((currentPage - 1) * 100, currentPage * 100));
   const questions = $derived(
     data.questions.filter((q) => !questionId || q.question.id === questionId),
   );
@@ -29,7 +50,6 @@
     stale: 'Starsza wersja',
     invalid: 'Nieprawidłowa',
     paused: 'Wstrzymana',
-    closed: 'Zamknięta',
   };
   async function load() {
     try {
@@ -79,7 +99,8 @@
           <th>Miejsce</th><th>Uczestnik</th><th>Punkty</th>
         </tr></thead
       ><tbody
-        >{#each data.standings as person}<tr>
+        >{#each data.standings.filter( (person) => matchingParticipants.has(person.participantId) ) as person}<tr
+          >
             <td>{person.place}</td><td>{person.nickname}</td><td>{person.score}</td>
           </tr>{/each}</tbody
       >
@@ -110,9 +131,8 @@
       <table aria-label={`Wyniki pytania ${data.questions.indexOf(q) + 1}`}>
         <thead><tr><th>Uczestnik</th><th>Odpowiedź liczona</th><th>Punkty</th></tr></thead>
         <tbody
-          >{#each q.results.filter((r) => r.nickname
-              .toLocaleLowerCase('pl')
-              .includes(participant.trim().toLocaleLowerCase('pl'))) as result}<tr>
+          >{#each q.results.filter( (result) => matchingParticipants.has(result.participantId) ) as result}<tr
+            >
               <td>{result.nickname}</td><td>{result.answer ?? 'Brak odpowiedzi'}</td>
               <td>{q.revealed ? result.score : '—'}</td>
             </tr>{/each}</tbody
@@ -150,7 +170,10 @@
         ></thead
       >
       <tbody
-        >{#each rows as row}<tr data-operation={row.operationId} class:excluded={row.excluded}>
+        >{#each visibleRows as row}<tr
+            data-operation={row.operationId}
+            class:excluded={row.excluded}
+          >
             <td
               >{row.firstName}
               {row.lastName}<br /><strong>{row.nickname}</strong><br />
@@ -196,6 +219,15 @@
       >
     </table>
   </div>
+  {#if pageCount > 1}<nav class="actions" aria-label="Strony historii odpowiedzi">
+      <button disabled={currentPage === 1} onclick={() => (auditPage = currentPage - 1)}
+        >Poprzednie</button
+      >
+      <span>Strona {currentPage} / {pageCount} · do 100 operacji na stronie</span>
+      <button disabled={currentPage === pageCount} onclick={() => (auditPage = currentPage + 1)}
+        >Następne</button
+      >
+    </nav>{/if}
   {#if !rows.length}<p>Brak operacji spełniających filtry.</p>{/if}
   {#if selected}<form
       class="notice review-form"
