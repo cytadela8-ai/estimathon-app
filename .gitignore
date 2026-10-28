@@ -5,3 +5,6 @@ data/
 *.log
 coverage/
 .playwright-mcp/
+
+test-results/
+playwright-report/

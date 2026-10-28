@@ -18,6 +18,10 @@
       "development": "./src/client/*.ts",
       "types": "./src/client/*.ts",
       "default": "./dist/client/*.js"
+    },
+    "#est-e2e/*": {
+      "types": "./tests/e2e/*.ts",
+      "default": "./tests/e2e/*.ts"
     }
   },
   "scripts": {
@@ -28,7 +32,8 @@
     "check": "svelte-check --tsconfig ./tsconfig.json && tsc --noEmit",
     "lint": "oxlint --deny-warnings && oxfmt --check .",
     "format": "oxfmt .",
-    "test": "NODE_OPTIONS=--conditions=development vitest run"
+    "test": "NODE_OPTIONS=--conditions=development vitest run",
+    "test:e2e": "pnpm build && NODE_ENV=test playwright test"
   },
   "dependencies": {
     "@fastify/static": "10.1.8",
@@ -40,6 +45,7 @@
     "svelte": "5.57.3"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "@sveltejs/vite-plugin-svelte": "7.3.1",
     "@types/better-sqlite3": "9.6.0",
     "@types/node": "22.20.0",

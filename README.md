@@ -24,13 +24,16 @@ Open `http://SERVER_LAN_IP:3000` on the shared Wi-Fi network:
 - `/play`: register, type an answer, return to the same session, or recover with a code.
 - `/screen`: projector; use the browser's fullscreen mode. Reconnection fetches a new snapshot.
 - `/admin`: password-protected host dashboard, questions, settings, participants, recovery QR codes,
-  live accepted answers and contest controls.
+  live answers, complete results, arrival-time monitoring, host exclusions and contest controls.
 
 In `/admin`, add/import questions, save the configuration, then start. Pause/resume retains the
-remaining time; **+30 seconds** extends it. Closing a question still respects the configured delivery
-window. Results cannot appear until acceptance has closed. Advance manually, or configure an
-automatic results interval (at least 15 seconds). After the last question, advancing opens the final
-results view. You can also finish early from a question's results.
+remaining time; **+30 seconds** extends it. The server automatically ends answering and displays a
+synchronization animation for five seconds (configurable from 1 to 60). It then reveals results.
+Only the host starts the next question. After the last question, advancing opens final results;
+the host can also finish early from a question's results. There is no automatic progression.
+
+Participants remain on a minimal `/play` screen with no navigation to other views. Identity and
+recovery stay in an expandable account panel on the same page.
 
 Each database represents **one contest**. To run another, stop the server and set `DATABASE_PATH`
 to a new filename. Previous databases remain intact. Configuration freezes at contest start.
@@ -76,16 +79,48 @@ field uses the average of its two middle errors. Exact answers receive 1000 poin
 uses JavaScript's half-up `Math.round`. For example, estimates `100`, `200`, `400` with correct
 answer `100` receive `1000`, `500`, `333` points. Each question has its own median.
 
-Points are calculated only after answer acceptance closes and stored with the finalized question.
-The server rebuilds finalized scores from confirmed answers on startup, without scoring the
-currently editable question. Standings sum per-question scores, highest first. Missing submissions
-remain unscored and are excluded from the median; no missing-answer penalty has been specified.
-Equal totals sort by nickname and participant ID for stable display; an official tie-breaking rule
-has not been specified.
+Points are calculated at reveal, then recalculated for the entire question whenever delayed
+answers or host exclusions change the counted submissions. This updates the median and therefore
+may change everyone's points. Missing answers receive **zero points** and do not enter the median.
+Standings sum per-question points. Equal totals share competition places: **1, 1, 3**. Nickname/ID
+ordering only controls display order within a shared place.
 
-The participant view shows points for the completed question. The projector reveals the top five,
-then presents an animated final podium alongside a scrolling list of **all** participants,
-including unranked entries. Scoring works without extra modules or environment configuration.
+The participant sees personal points and place. The projector displays the first five places,
+including everyone tied at those places. Tied winners share a podium step; large tied groups scroll
+within it. The final scrolling list includes everyone, including zero-point participants.
+
+## Host results and arrival monitoring
+
+Open **Wyniki i monitoring** in `/admin` for cumulative standings, every question's correct answer,
+counted answers and points, and a history of unique submission operations. Question and participant
+filters narrow the view. The arrival history also supports filtering by entered answer text and a
+minimum server arrival delay, initially **3 seconds**. Untick **Tylko spóźnione** to include on-time
+operations. The table displays at most 100 operations per page without truncating the history.
+
+For each operation, the host can inspect:
+
+- Participant name/nickname, question, exact answer text, revision and operation ID.
+- First server arrival and server deadline as ISO timestamps with milliseconds in UTC.
+- Signed server arrival minus server deadline: negative before the deadline, positive after it.
+- Phone-reported input time, its locally estimated deadline, their signed difference, and the
+  phone's estimated server clock offset at input. These values persist with the original edit.
+- Accepted/stale/invalid/paused status, whether the operation is counted or excluded, and the
+  timestamped history of host decisions with reasons.
+
+**Phone timing is untrusted telemetry, not proof of when an answer was entered.** Missing phone
+metadata is shown as **Brak danych**. Old accepted answers remain preserved when opening an
+existing database; historical input timing and deadlines that were never recorded cannot be
+reconstructed. Repeated delivery keeps the first recorded server arrival unchanged.
+
+Late answers count automatically without a time cutoff, even after results or the final podium
+appear, or after another question starts. The host can **Wyklucz** an operation with a reason and
+later **Przywróć** it. Exclusion selects that participant's previous eligible, non-excluded revision;
+if none exists, the question scores zero. Reviews do not delete submissions. Duplicate delivery
+cannot undo exclusion. Rankings update automatically, so displayed results remain revisable.
+
+All monitoring and review endpoints require host authentication. Agents can use the same atomic
+HTTP operations as the dashboard: `GET /api/admin/results` and `POST /api/admin/review` with
+`{ participantId, operationId, excluded, reason }` and the host bearer token.
 
 ## Synchronization protocol
 
@@ -96,47 +131,51 @@ including unranked entries. Scoring works without extra modules or environment c
 2. Each question has a revision counter and random operation ID. The server orders updates by
    `(revision, operationId)`; operation ID breaks equal-revision ties deterministically, independent
    of arrival order. Clients use the maximum locally/server-observed revision plus one.
-3. The answer and idempotency receipt commit in one SQLite transaction before acknowledgment.
+3. The answer, first-arrival audit entry, any score changes and idempotency receipt commit in
+   one SQLite transaction before acknowledgment.
    Duplicate delivery returns the stored receipt; reusing an ID for different content is rejected.
    Delayed older operations cannot overwrite the latest accepted operation.
 4. Unacknowledged edits retry every 1.5 seconds; acknowledgment timeout is 2 seconds. Reconnection
    fetches an authoritative snapshot and the participant's accepted answers before retrying.
 5. Local drafts and a separate retry record for the latest valid edit are stored per participant
-   and question. Clearing the field or typing intermediate text preserves that retry record. An older server snapshot cannot overwrite
-   a newer local draft. Storage events coordinate tabs; server broadcasts accepted answers only to
+   and question. Clearing the field or typing intermediate text preserves that retry record.
+   An older server snapshot cannot overwrite a newer local draft. Storage events coordinate tabs; server broadcasts accepted answers only to
    sockets belonging to that participant. Truly simultaneous edits use the tie rule above.
-6. Rejected late drafts remain locally available with an explicit error. The last accepted server
-   answer remains final. Paused operations remain pending until resume. Storage failures are shown
-   as errors and no server save is claimed.
+6. Valid pending edits keep retrying for previous questions too, with no late-delivery cutoff.
+   Invalid drafts remain local; invalid numeric submissions show an error. Paused operations stay
+   pending until resume. Storage failures are visible and no server save is claimed.
+7. Revision watermarks persist separately from the counted draft. Recovery snapshots include
+   the highest observed revisions, including excluded submissions, so moderation cannot reset the
+   next revision counter. Authoritative snapshots can revert confirmed answers while preserving
+   genuinely unacknowledged local edits.
 
-The last **accepted version**, rather than the last packet received, is authoritative. Browser
-storage does not offer cross-tab atomic increments; simultaneous equal revisions are expected and
+The highest eligible, non-excluded version is counted. Browser storage does not offer cross-tab atomic increments; simultaneous equal revisions are expected and
 resolved with operation IDs. A participant should use one device for active editing. Recovery on
 another device restores confirmed answers and then continues the server revision sequence.
 
-Server events never expose current submissions or correct answers publicly while editing remains
-possible. Host-only APIs may inspect live answers. Broadcast counts are coalesced to at most ten
-updates per second, not one broadcast per keystroke per participant. Countdown uses an absolute
+Server events hide current submissions and correct answers until the reveal delay ends. Host-only
+APIs may inspect live answers. Broadcast counts are coalesced to at most ten updates per second, not one broadcast per keystroke per participant. Countdown uses an absolute
 server deadline with a midpoint clock-offset estimate refreshed every 15 seconds and on reconnect;
 remaining time is not broadcast every second. A shared browser clock also disables the answer
 input at the deadline while disconnected, and returns zero when no deadline exists.
 
 ## Deadlines, restart and presentation
 
-- **Strict** (initial setting): arrivals at or after `endsAt` are rejected.
-- **Grace**: arrivals before `endsAt + graceSeconds` are accepted; the default editable grace value
-  is 5 seconds. This explicitly permits newly created late edits too: client timestamps cannot
-  establish when an answer was typed. The server never treats local time as proof.
-- Both policies add a two-second non-editing transition after the acceptance window. Results only
-  become public after that delay. The projector then reveals the distribution, correct answer
-  after 3.5 seconds, and leaderboard after 7 seconds. Reconnecting projectors derive the stage from
-  the persisted server timestamp.
+- The server owns the question deadline. The participant input and edit handler lock locally at
+  the offset-adjusted deadline, even when disconnected. This does not stop retrying stored edits.
+- There is no strict/grace acceptance policy. Server arrival lateness is monitored rather than
+  automatically rejected. A modified client can submit late edits; host review is the enforcement
+  mechanism. Client timestamps are never trusted as evidence.
+- After the deadline, the projector displays the synchronization animation for the configured
+  delay (initially five seconds). It reveals the distribution, then the correct answer after
+  3.5 seconds and the leaderboard after 7 seconds. Reconnecting projectors restore the stage from
+  server timestamps. Later arrivals update the displayed results without restarting the animation.
 - Question phase, version, deadlines, paused remaining time and configuration persist in SQLite.
-  On restart an expired question closes before new edits can be accepted. Results stay visible for
-  their configured duration from finalization; the server never skips unseen questions to catch up
-  with downtime. A running question's absolute deadline is not extended by server downtime.
-- Participant credentials survive restart. Admin tokens are deliberately in memory and require
-  login again after restart; the dashboard handles expiration automatically.
+  Host commands persist state and schedule together. On restart an expired question moves through
+  its reveal transition; the server never starts another question without the host. Downtime does
+  not extend a running deadline. Input telemetry, first arrivals and host exclusions also persist.
+- Participant credentials survive restart. Admin tokens are in memory and expire after 12 hours;
+  restarting requires host login again. The dashboard handles expiration automatically.
 
 ## LAN operations and backups
 
@@ -172,26 +211,29 @@ pnpm build      # static frontend and Node backend
 pnpm audit --prod --audit-level=moderate
 ```
 
-Tests exercise duplicate IDs, delayed operations, equal-revision tabs, invalid input, deadlines,
-grace acceptance, pause/resume, automatic progression, median scoring, abrupt process termination,
-stale snapshots, valid edits followed by intermediate drafts, disconnected countdowns,
-browser-storage failure, obsolete acknowledgment timeouts, staged projector reveals, account
-recovery, admin protection and a 300-client
-simultaneous Socket.IO burst. This loopback test does not establish capacity of a venue's Wi-Fi.
-Run a rehearsal with representative devices and the actual access point before the event.
+Tests exercise duplicate IDs, delayed/out-of-order operations, equal-revision tabs, invalid input,
+indefinite late arrival, pause/resume, manual progression, median recalculation, zero missing scores,
+shared places, host exclusions/restoration, audit timing, revision watermarks and abrupt termination.
+The 300-client Socket.IO burst uses a real SQLite file with WAL and FULL synchronization. This
+loopback test does not establish capacity of a venue's Wi-Fi; rehearse on the actual access point.
 
-Browser checks performed on a 390px viewport: registration, refresh restoration, offline editing
-and reconnect, two-tab synchronization, host login/pause/resume/close, and staged projector results.
-No uncaught application errors or horizontal overflow were observed in these flows.
-Also checked host re-login after server restart, recovery QR generation and final results.
-Follow-up browser checks confirmed that an offline valid edit survives clearing the field and
-closing/reopening its tab, while the empty draft remains intact; disconnected input locks at zero.
-A real server is terminated with `SIGKILL` immediately after acknowledging an answer; the test
-restarts it against the same SQLite file and verifies the answer, receipt, session and deadline.
-Browser checks also verified 1000/500/333-point results, personal points, and the final podium
-alongside all participants on desktop, with a stacked layout and no overflow on mobile.
-Reversing the revision comparison deliberately failed the out-of-order regression test; the
-original implementation was then restored and the full suite passed.
+The automated Playwright suite runs Chromium at desktop (1920×1080) and mobile (390×844) sizes:
+
+```bash
+pnpm exec playwright install chromium  # download once while Internet is available
+pnpm test:e2e                         # builds and tests production frontend/backend
+```
+
+Each test gets an isolated server process and temporary SQLite database, cleaned up afterward.
+Coverage includes offline edit/clear/deadline/close/reopen and late delivery to an earlier question;
+immediate close, two-tab synchronization and account recovery; host question import, timing filters,
+exclusion/restoration and tied podium; participant/projector reconnection after a server restart.
+Tests assert no participant navigation links or uncaught errors in the primary browser context,
+and check overflow on participant, host and projector screens. Failure screenshots and traces go
+in ignored `test-results/`; inspect traces with `pnpm exec playwright show-trace PATH_TO_TRACE`.
+Use `pnpm exec playwright test --project=mobile` after building to run one viewport only.
+
+There is no CI workflow or pre-commit hook; invoke these commands in your own automation.
 
 The development-only Svelte Vite plugin transitively includes `deepmerge@4.3.1`, reported under
 GHSA-gcqx-w48m-w2h4 with no patched version available at implementation time. It merges trusted

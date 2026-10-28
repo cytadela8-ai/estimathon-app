@@ -18,8 +18,15 @@
     "paths": {
       "#est-client/*": ["./src/client/*"],
       "#est-server/*": ["./src/server/*"],
-      "#est-shared/*": ["./src/shared/*"]
+      "#est-shared/*": ["./src/shared/*"],
+      "#est-e2e/*": ["./tests/e2e/*"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.svelte", "tests/**/*.ts", "vite.config.ts"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.svelte",
+    "tests/**/*.ts",
+    "vite.config.ts",
+    "playwright.config.ts"
+  ]
 }
