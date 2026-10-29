@@ -275,10 +275,11 @@ After each question, the projector shows separate top-five rankings for that que
 whole contest, including shared places. The host's question tables show all participants in
 score order with their question places, independently of the overall ranking.
 
-The answer histogram is centered on the correct answer and spans ±3M in logarithmic space.
+The answer histogram is centered on the correct answer and spans ±2M in logarithmic space.
 M is the same median absolute logarithmic error used in scoring, with a minimum of 0.05.
-Twelve equal-width log buckets cover the range; two additional overflow buckets retain extreme
-answers. Numeric axis labels and the center marker appear with the correct-answer reveal.
+Forty-eight equal-width log buckets cover the range; two additional overflow buckets retain extreme
+answers. Five numeric labels mark −2M, −M, the correct answer, +M and +2M; bar counts
+are hidden. Axis values and the center marker appear with the correct-answer reveal.
 Late answers and host reviews automatically update both rankings and the chart.
 
 ### Clear participant browser data

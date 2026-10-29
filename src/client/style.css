@@ -571,7 +571,7 @@ summary {
   height: 190px;
   display: flex;
   align-items: end;
-  gap: 6px;
+  gap: 2px;
   margin-top: 28px;
   border-bottom: 1px solid #ffffff60;
 }
@@ -585,19 +585,13 @@ summary {
   min-width: 0;
 }
 .chart-column > div {
-  height: calc(var(--height) * 0.8);
-  min-height: 2px;
+  height: var(--height);
   background: var(--pink);
   width: 100%;
-  border-radius: 4px 4px 0 0;
+  border-radius: 2px 2px 0 0;
   transform-origin: bottom;
   animation: grow 0.8s both;
   animation-delay: var(--delay);
-}
-.chart-column span {
-  font-size: 28px;
-  font-weight: 650;
-  color: white;
 }
 .chart-labels {
   display: flex;
@@ -642,24 +636,27 @@ summary {
   display: grid;
 }
 .chart-axis {
-  display: flex;
-  justify-content: space-between;
-  margin: 12px calc(100% / 14) 0;
-  gap: 12px;
+  position: relative;
+  height: 48px;
+  margin: 12px 2% 0;
   color: white;
-  font-size: clamp(20px, 2vw, 32px);
+  font-size: clamp(20px, 1.7vw, 30px);
   font-weight: 650;
 }
 .chart-axis span {
-  flex: 1;
-  min-width: 0;
+  position: absolute;
+  left: var(--position);
+  transform: translateX(-50%);
+  white-space: nowrap;
 }
-.chart-axis span:nth-child(2) {
-  text-align: center;
+.chart-axis span:first-child {
+  transform: none;
+}
+.chart-axis span:nth-child(3) {
   color: var(--yellow);
 }
 .chart-axis span:last-child {
-  text-align: right;
+  transform: translateX(-100%);
 }
 .chart-center {
   position: absolute;
@@ -669,11 +666,6 @@ summary {
 }
 .overflow-bin > div {
   background: #c7cfef;
-}
-.chart-scale {
-  color: #c7cfef;
-  font-size: 18px;
-  margin-bottom: 0;
 }
 .leader-row {
   display: flex;
@@ -1169,15 +1161,12 @@ td .text-button {
     gap: 4px;
   }
   .chart-axis {
-    margin-inline: 0;
-    font-size: 18px;
+    font-size: 15px;
+    height: 30px;
   }
   .chart {
     height: 150px;
-    gap: 4px;
-  }
-  .chart-column span {
-    font-size: 18px;
+    gap: 1px;
   }
   .correct-reveal .correct-value {
     font-size: 48px;

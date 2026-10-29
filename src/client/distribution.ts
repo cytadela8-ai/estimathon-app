@@ -3,19 +3,23 @@ import { logarithmicScale } from '#est-shared/estimates';
 
 export function answerDistribution(answers: string[], correct: string) {
   const scale = logarithmicScale(answers, correct);
-  const radius = 3 * scale;
-  const bins = Array<number>(14).fill(0);
+  const radius = 2 * scale;
+  const bucketCount = 48;
+  const bins = Array<number>(bucketCount + 2).fill(0);
   for (const answer of answers) {
     const offset = Math.log(Number(answer) / Number(correct));
-    let index = Math.min(12, 1 + Math.floor(((offset + radius) / (2 * radius)) * 12));
+    let index = Math.min(
+      bucketCount,
+      1 + Math.floor(((offset + radius) / (2 * radius)) * bucketCount),
+    );
     if (offset < -radius) index = 0;
-    if (offset > radius) index = 13;
+    if (offset > radius) index = bucketCount + 1;
     bins[index]! += 1;
   }
   return {
     scale,
     bins,
-    ticks: [-1, 0, 1].map(
+    ticks: [-1, -0.5, 0, 0.5, 1].map(
       (direction) => Math.log10(Number(correct)) + (direction * radius) / Math.LN10,
     ),
   };

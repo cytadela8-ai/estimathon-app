@@ -87,25 +87,22 @@
             <div class="chart">
               {#each distribution.bins as count, i}<div
                   class="chart-column"
-                  class:overflow-bin={i === 0 || i === 13}
-                  style={`--height:${(count / highest) * 100}%;--delay:${i * 45}ms`}
+                  class:overflow-bin={i === 0 || i === distribution.bins.length - 1}
+                  style={`--height:${(count / highest) * 100}%;--delay:${i * 12}ms`}
                 >
-                  <span>{count || ''}</span>
                   <div></div>
                 </div>{/each}
               {#if elapsed > 3500}<div class="chart-center" aria-hidden="true"></div>{/if}
             </div>
             <div class="chart-labels">
-              <span>← &lt; −3M</span><span>Skala logarytmiczna</span><span>&gt; +3M →</span>
+              <span>← &lt; −2M</span><span>Skala logarytmiczna</span><span>&gt; +2M →</span>
             </div>
             {#if elapsed > 3500}<div class="chart-axis" aria-label="Zakres odpowiedzi">
-                {#each distribution.ticks as tick}<span>{formatAxis(tick)}</span>{/each}
+                {#each distribution.ticks as tick, i}<span style={`--position:${i * 25}%`}
+                    >{formatAxis(tick)}</span
+                  >{/each}
               </div>
-              <p class="chart-scale">
-                M = {distribution.scale.toLocaleString('pl-PL', {
-                  maximumSignificantDigits: 3,
-                })} · mediana błędu logarytmicznego (minimum 0,05)
-              </p>{/if}
+            {/if}
             {#if !submitted.length}<p>Brak przyjętych odpowiedzi.</p>{/if}
           </section>
           {#if elapsed > 3500}<section class="correct-reveal">
