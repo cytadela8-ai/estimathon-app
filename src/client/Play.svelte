@@ -1,6 +1,6 @@
 <script lang="ts">
   import { now, remainingMilliseconds } from '#est-client/clock';
-  import { client, edit, api, setSession } from '#est-client/sync';
+  import { client, edit, api, setSession, clearBrowserData } from '#est-client/sync';
   import { isPositiveInteger } from '#est-shared/protocol';
   import type { Session } from '#est-shared/protocol';
   import Timer from '#est-client/Timer.svelte';
@@ -12,6 +12,7 @@
   if (location.hash) history.replaceState(null, '', '/play');
   let error = $state('');
   let busy = $state(false);
+  let wipeRequested = $state(false);
   const snapshot = $derived($client.snapshot);
   const phase = $derived(snapshot?.state.phase ?? 'lobby');
   const editable = $derived(
@@ -61,6 +62,30 @@
             <label>Odzyskaj konto<input bind:value={recovery} required autocomplete="off" /></label>
             <button disabled={busy}>Przywróć konto</button>
           </form>
+          {#if wipeRequested}<form
+              class="wipe-confirmation"
+              aria-label="Wyczyść dane przeglądarki"
+              onsubmit={(event) => {
+                event.preventDefault();
+                try {
+                  clearBrowserData();
+                } catch (cause) {
+                  error = (cause as Error).message;
+                }
+              }}
+            >
+              <strong>Wyczyścić dane i wylogować?</strong>
+              <p>
+                Usuniemy dane tej aplikacji z przeglądarki, w tym niewysłane odpowiedzi. Zapisane na
+                serwerze odpowiedzi pozostaną. Zachowaj kod odzyskiwania, aby wrócić do konta.
+              </p>
+              <div class="actions">
+                <button class="danger">Potwierdź usunięcie danych</button>
+                <button type="button" onclick={() => (wipeRequested = false)}>Anuluj</button>
+              </div>
+            </form>{:else}<button class="text-button" onclick={() => (wipeRequested = true)}
+              >Wyczyść dane i wyloguj</button
+            >{/if}
         </aside>
       </details>{/if}
   </header>

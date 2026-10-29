@@ -280,3 +280,10 @@ M is the same median absolute logarithmic error used in scoring, with a minimum 
 Twelve equal-width log buckets cover the range; two additional overflow buckets retain extreme
 answers. Numeric axis labels and the center marker appear with the correct-answer reveal.
 Late answers and host reviews automatically update both rankings and the chart.
+
+### Clear participant browser data
+
+On `/play`, open the nickname / recovery-code menu and choose **Wyczyść dane i wyloguj**.
+The confirmation explains that this clears all localStorage for this origin, the current tab's
+sessionStorage, login credentials, and unsent drafts. Other open participant tabs also sign out.
+Server-side accounts and confirmed answers remain; save the recovery code before confirming.

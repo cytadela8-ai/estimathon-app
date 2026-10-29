@@ -155,6 +155,16 @@ export function setSession(session: Session): void {
   localStorage.setItem('estymator.session', JSON.stringify(session));
   window.location.assign('/play');
 }
+/** Erase this origin's browser data and disconnect before queued callbacks can restore drafts. */
+export function clearBrowserData(): void {
+  socket.disconnect();
+  ledger = null;
+  confirmed.clear();
+  inFlight.clear();
+  localStorage.clear();
+  sessionStorage.clear();
+  window.location.replace('/play');
+}
 export async function api<T>(
   path: string,
   body?: unknown,
@@ -213,7 +223,12 @@ export function initialize(): () => void {
   });
   socket.on('answers', (answers) => guarded(() => reconcile(answers)));
   const storage = (event: StorageEvent) => {
-    if (event.key === 'estymator.session') window.location.reload();
+    if (event.key === null || event.key === 'estymator.session') {
+      socket.disconnect();
+      ledger = null;
+      window.location.reload();
+      return;
+    }
     if (event.key?.startsWith('estymator.answer.'))
       guarded(() => {
         refreshDraft();

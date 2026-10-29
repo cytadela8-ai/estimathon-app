@@ -1224,3 +1224,8 @@ td .text-button {
     overflow: auto;
   }
 }
+.wipe-confirmation {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--grid);
+}

@@ -65,6 +65,7 @@ beforeEach(async () => {
     setItem: (key: string, value: string) => {
       data.set(key, value);
     },
+    clear: () => data.clear(),
     removeItem: (key: string) => {
       data.delete(key);
     },
@@ -73,8 +74,11 @@ beforeEach(async () => {
       return data.size;
     },
   });
+  vi.stubGlobal('sessionStorage', { clear: vi.fn() });
   const events = new EventTarget();
   vi.stubGlobal('window', {
+    location: { replace: vi.fn(), reload: vi.fn() },
+    dispatchEvent: events.dispatchEvent.bind(events),
     addEventListener: events.addEventListener.bind(events),
     removeEventListener: events.removeEventListener.bind(events),
   });
@@ -188,4 +192,26 @@ it('accepts host exclusion and restored older server answers without losing newe
   sync.edit('999');
   handlers.get('answers')!({ answers: [], revisions: {} });
   expect(get(sync.client)).toMatchObject({ confirmed: null, text: '999', pending: true });
+});
+
+it('clears pending edits and identity without restoring them after a delayed acknowledgment', () => {
+  sync.edit('123');
+  expect(data.size).toBeGreaterThan(1);
+  sync.clearBrowserData();
+  expect(data.size).toBe(0);
+  expect(sessionStorage.clear).toHaveBeenCalledOnce();
+  expect(window.location.replace).toHaveBeenCalledWith('/play');
+  confirm(sent[0]!);
+  vi.advanceTimersByTime(30_000);
+  expect(data.size).toBe(0);
+  expect(sent).toHaveLength(1);
+});
+it('disconnects other tabs when all local storage is cleared', () => {
+  sync.edit('123');
+  const event = new Event('storage');
+  Object.assign(event, { key: null });
+  window.dispatchEvent(event);
+  expect(window.location.reload).toHaveBeenCalledOnce();
+  vi.advanceTimersByTime(30_000);
+  expect(sent).toHaveLength(1);
 });
