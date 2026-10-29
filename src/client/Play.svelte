@@ -4,6 +4,7 @@
   import { isPositiveInteger } from '#est-shared/protocol';
   import type { Session } from '#est-shared/protocol';
   import Timer from '#est-client/Timer.svelte';
+  import PersonalResults from '#est-client/PersonalResults.svelte';
   let firstName = $state('');
   let lastName = $state('');
   let nickname = $state('');
@@ -213,6 +214,7 @@
           {#if standing}
             · Miejsce: <strong>{standing.place}</strong>{/if}
         </p>
+        {#if phase === 'finished'}<PersonalResults />{/if}
       </section>
     {/if}
     {#if error}<p class="error" role="alert">{error}</p>{/if}

@@ -37,7 +37,7 @@ summary on final-screen entry, reconnection, and contest-version changes; failed
 `GET /api/results` with participant Bearer token returns `{ version, questions }`.
 
 - [x] Write endpoint tests for authorization, phase gating, isolation, missing answers,
-      early finish, late answers, exclusions, restart and reset.
+      early finish, late answers, exclusions and restart.
 - [x] Run tests and observe failure before implementation.
 - [x] Implement a participant-filtered SQLite query and finished-only endpoint.
 - [x] Run tests, lint and types; commit the verified server change.
@@ -50,10 +50,15 @@ summary on final-screen entry, reconnection, and contest-version changes; failed
 **Interfaces:** `PersonalResults` consumes the current participant session and contest snapshot
 from the existing client store; it uses the endpoint from Task 1 without storing a second ledger.
 
-- [ ] Write browser coverage for final-only display, answer/zero-point rows, question show/hide,
-      reload, failed-request retry, late changes/reviews and mobile overflow.
-- [ ] Run browser tests and observe the missing table failure.
-- [ ] Implement the table, per-question reveal buttons, and version/reconnect-driven loading.
+- [x] Write browser coverage for final-only display, answer/zero-point rows, question show/hide,
+      reload, failed-request retry, late changes/reviews, reset and mobile overflow.
+- [x] Run browser tests and observe the missing table failure.
+- [x] Implement the table, per-question reveal buttons, and version/reconnect-driven loading.
       Cancel stale effect results; retry failed requests automatically.
-- [ ] Run relevant tests, lint, types and production build; inspect desktop/mobile screenshots.
-- [ ] Document the endpoint and final participant table; commit the verified UI change.
+- [x] Run relevant tests, lint, types and production build; inspect desktop/mobile screenshots.
+- [x] Document the endpoint and final participant table; commit the verified UI change.
+
+Verification: five authenticated API tests and six real browser cases pass. Covered desktop,
+390px mobile and 320px narrow layouts, including 100-digit answers. Lint, type checks and the
+production build pass; reviewed final-table screenshots on desktop and mobile. The symbolic
+histogram indicators remain absent.

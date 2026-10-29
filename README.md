@@ -289,3 +289,16 @@ On `/play`, open the nickname / recovery-code menu and choose **Wyczyść dane i
 The confirmation explains that this clears all localStorage for this origin, the current tab's
 sessionStorage, login credentials, and unsent drafts. Other open participant tabs also sign out.
 Server-side accounts and confirmed answers remain; save the recovery code before confirming.
+
+### Participant final results
+
+At the end of the contest, `/play` shows the participant's confirmed answer and points for each
+played question. Questions without a counted answer show **Brak odpowiedzi** and zero points. Each row
+has **Pokaż treść** / **Ukryj treść** controls for the question text. Unplayed questions are omitted
+when the host ends early. The table restores after reopening the browser and refreshes after
+late synchronization or host reviews; failed loads retry automatically.
+
+`GET /api/results` requires the participant's `Authorization: Bearer <token>` credential. It
+returns `{ version, questions }`, where each personal row contains `questionId`, `number`, `text`,
+`answer` and `score`. It exposes neither other participants' answers nor correct-answer fields,
+and returns HTTP 409 before the contest finishes.

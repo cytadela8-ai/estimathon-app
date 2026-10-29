@@ -1234,3 +1234,38 @@ td .text-button {
   padding-top: 20px;
   border-top: 1px solid var(--grid);
 }
+
+/* Personal results wrap long integer estimates without widening the participant page. */
+.personal-results {
+  margin-top: 32px;
+}
+.personal-results table {
+  table-layout: fixed;
+}
+.personal-results td,
+.personal-results th {
+  padding: 14px 8px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  vertical-align: top;
+  font-size: 16px;
+}
+.personal-results th:first-child {
+  width: 36%;
+}
+.personal-results th:last-child {
+  width: 22%;
+}
+.personal-results tbody th strong {
+  display: block;
+  color: var(--ink);
+}
+.personal-results .text-button {
+  min-height: 44px;
+  padding-inline: 0;
+  text-align: left;
+}
+.personal-results .personal-question {
+  background: white;
+  font-weight: 500;
+}
