@@ -42,8 +42,24 @@ The interface uses locally bundled Bricolage Grotesque with Polish glyphs. Font 
 source details are in [public/fonts/README.md](public/fonts/README.md). All visual assets work
 without Internet access.
 
-Each database represents **one contest**. To run another, stop the server and set `DATABASE_PATH`
-to a new filename. Previous databases remain intact. Configuration freezes at contest start.
+After final results, open **Przebieg konkursu → Resetuj konkurs → Potwierdź reset**. Reset returns
+to setup, keeps questions, settings, participant accounts and recovery codes, and clears the current
+answers, points, schedule and submission/review history. You can edit the questions and start again;
+connected participants and the projector return to the waiting screen automatically.
+
+Before resetting, the server writes a consistent, owner-readable SQLite backup beside the active
+database, named `DATABASE_FILENAME.backup-TIMESTAMP-UUID.sqlite`. The dashboard displays its name.
+It contains the finished contest's results, submissions, host decisions and participant credentials.
+If the backup fails, the contest stays unchanged. Keep these files private and manage their retention
+on the server. To inspect an archived contest, stop the process and point `DATABASE_PATH` at its copy.
+
+Question IDs change on reset. Queued answers from the previous run are rejected, including after a
+participant reconnects; they cannot affect the new run. Only a finished contest can be reset, and
+reset requires confirmation. The private API is `POST /api/admin/reset` with `{ "confirmed": true }`
+and the host bearer token; it returns `{ "backup": "filename.sqlite" }`.
+
+Each database has **one active contest**. You can instead start with a new `DATABASE_PATH` to keep
+participants separate between events. Configuration freezes at contest start and unlocks on reset.
 
 For development, run `pnpm dev` and `pnpm dev:client` in separate terminals. Vite proxies API and
 Socket.IO requests to port 3000. Use Vite's port for the frontend during development.
@@ -234,7 +250,9 @@ pnpm test:e2e                         # builds and tests production frontend/bac
 Each test gets an isolated server process and temporary SQLite database, cleaned up afterward.
 Coverage includes offline edit/clear/deadline/close/reopen and late delivery to an earlier question;
 immediate close, two-tab synchronization and account recovery; host question import, timing filters,
-exclusion/restoration and tied podium; participant/projector reconnection after a server restart.
+exclusion/restoration and tied podium; ending from active/paused/closing phases; reset confirmation,
+restart of the contest with retained sessions/questions, offline draft isolation between runs; and
+participant/projector reconnection after a server restart.
 Tests assert no participant navigation links or uncaught errors in the primary browser context,
 and check overflow on participant, host and projector screens. Failure screenshots and traces go
 in ignored `test-results/`; inspect traces with `pnpm exec playwright show-trace PATH_TO_TRACE`.

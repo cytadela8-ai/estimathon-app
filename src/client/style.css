@@ -393,6 +393,7 @@ summary {
   color: var(--error) !important;
 }
 .notice {
+  overflow-wrap: anywhere;
   background: #e6ebff;
   border-left: 3px solid var(--cobalt);
   padding: 20px 24px;

@@ -20,6 +20,7 @@
   let questions = $state<Question[]>([]);
   let busy = $state(false);
   let tab = $state('contest');
+  let resetRequested = $state(false);
   let qr = $state('');
   let qrName = $state('');
   const phase = $derived($client.snapshot?.state.phase ?? 'lobby');
@@ -82,6 +83,21 @@
     try {
       await api('/api/admin/command', { command }, token);
       await load();
+    } catch (e) {
+      error = (e as Error).message;
+    } finally {
+      busy = false;
+    }
+  }
+  async function resetContest() {
+    busy = true;
+    error = '';
+    notice = '';
+    try {
+      const result = await api<{ backup: string }>('/api/admin/reset', { confirmed: true }, token);
+      resetRequested = false;
+      await load(true);
+      notice = `Konkurs zresetowany. Kopia bazy: ${result.backup}`;
     } catch (e) {
       error = (e as Error).message;
     } finally {
@@ -207,34 +223,65 @@
           >{/each}
       </nav>
       {#if tab === 'contest'}<section class="card control-card">
-          <div class="mini-label">
-            Pytanie {Math.max(0, ($client.snapshot?.state.index ?? -1) + 1)} / {$client.snapshot
-              ?.totalQuestions ?? 0}
-          </div>
-          <h2>{$client.snapshot?.question?.text ?? 'Konkurs nie rozpoczął się'}</h2>
-          {#if phase === 'lobby' && !questions.length}<p>Dodaj pytania w ustawieniach.</p>{/if}
-          <div class="actions">
-            <button
-              class="primary"
-              disabled={busy || phase !== 'lobby' || !questions.length}
-              onclick={() => command('start')}>Rozpocznij konkurs</button
-            ><button disabled={busy || phase !== 'active'} onclick={() => command('pause')}
-              >Wstrzymaj</button
-            ><button disabled={busy || phase !== 'paused'} onclick={() => command('resume')}
-              >Wznów</button
-            ><button
-              disabled={busy || !['active', 'paused'].includes(phase)}
-              onclick={() => command('extend')}>+30 sekund</button
-            ><button
-              disabled={busy || !['active', 'paused', 'results'].includes(phase)}
-              onclick={() => command('next')}
-              >{phase === 'results' ? 'Następne pytanie' : 'Zamknij pytanie'}</button
-            ><button
-              class="danger"
-              disabled={busy || !['active', 'paused', 'closing', 'results'].includes(phase)}
-              onclick={() => command('finish')}>Zakończ konkurs</button
-            >
-          </div>
+          {#if phase === 'finished'}
+            <h2>Konkurs zakończony</h2>
+            {#if resetRequested}
+              <form
+                class="notice"
+                aria-label="Reset konkursu"
+                onsubmit={(e) => {
+                  e.preventDefault();
+                  void resetContest();
+                }}
+              >
+                <strong>Zresetować konkurs?</strong>
+                <p>
+                  Zapiszemy kopię bazy, a następnie wyczyścimy odpowiedzi, wyniki i historię.
+                  Pytania, ustawienia i konta uczestników zostaną zachowane. Spóźnione odpowiedzi z
+                  tego konkursu nie będą już przyjmowane.
+                </p>
+                <div class="actions">
+                  <button class="primary" disabled={busy}>Potwierdź reset</button>
+                  <button type="button" disabled={busy} onclick={() => (resetRequested = false)}
+                    >Anuluj</button
+                  >
+                </div>
+              </form>
+            {:else}
+              <button class="primary" disabled={busy} onclick={() => (resetRequested = true)}
+                >Resetuj konkurs</button
+              >
+            {/if}
+          {:else}
+            <div class="mini-label">
+              Pytanie {Math.max(0, ($client.snapshot?.state.index ?? -1) + 1)} / {$client.snapshot
+                ?.totalQuestions ?? 0}
+            </div>
+            <h2>{$client.snapshot?.question?.text ?? 'Konkurs nie rozpoczął się'}</h2>
+            {#if phase === 'lobby' && !questions.length}<p>Dodaj pytania w ustawieniach.</p>{/if}
+            <div class="actions">
+              <button
+                class="primary"
+                disabled={busy || phase !== 'lobby' || !questions.length}
+                onclick={() => command('start')}>Rozpocznij konkurs</button
+              ><button disabled={busy || phase !== 'active'} onclick={() => command('pause')}
+                >Wstrzymaj</button
+              ><button disabled={busy || phase !== 'paused'} onclick={() => command('resume')}
+                >Wznów</button
+              ><button
+                disabled={busy || !['active', 'paused'].includes(phase)}
+                onclick={() => command('extend')}>+30 sekund</button
+              ><button
+                disabled={busy || !['active', 'paused', 'results'].includes(phase)}
+                onclick={() => command('next')}
+                >{phase === 'results' ? 'Następne pytanie' : 'Zamknij pytanie'}</button
+              ><button
+                class="danger"
+                disabled={busy || !['active', 'paused', 'closing', 'results'].includes(phase)}
+                onclick={() => command('finish')}>Zakończ konkurs</button
+              >
+            </div>
+          {/if}
         </section>
       {:else if tab === 'questions' && config}<section class="card">
           <h2>Ustawienia konkursu</h2>

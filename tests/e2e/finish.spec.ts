@@ -52,7 +52,7 @@ for (const phase of ['active', 'paused', 'closing'] as const) {
     await expect(projector.locator('.podium-person[data-place="1"]')).toContainText('Jan');
     expect((await contest.results()).standings[0]?.score).toBe(1000);
     expect((await contest.state()).state.index).toBe(0);
-    await expect(finish).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Resetuj konkurs', exact: true })).toBeVisible();
     await expect(page.getByRole('alert')).toHaveCount(0);
   });
 }
