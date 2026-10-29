@@ -1,4 +1,4 @@
-/** Host authentication is independent of persistent participant sessions. */
+/** Host authentication uses registered route paths, independent of participant sessions. */
 import type { FastifyInstance } from 'fastify';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 export function registerAuth(app: FastifyInstance, password: string) {
@@ -12,7 +12,7 @@ export function registerAuth(app: FastifyInstance, password: string) {
     reply.header('Cache-Control', 'no-store');
     reply.header('Referrer-Policy', 'no-referrer');
     reply.header('X-Content-Type-Options', 'nosniff');
-    if (!request.url.startsWith('/api/admin/')) return;
+    if (!request.routeOptions.url?.startsWith('/api/admin/')) return;
     const token = request.headers.authorization?.replace(/^Bearer /, '') ?? '';
     if ((adminTokens.get(token) ?? 0) <= Date.now()) {
       adminTokens.delete(token);
