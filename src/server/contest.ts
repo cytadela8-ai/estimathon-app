@@ -111,6 +111,7 @@ export class Contest {
       this.db.exec(`
         DELETE FROM submission_reviews;
         DELETE FROM submissions;
+        DELETE FROM revision_watermarks;
         DELETE FROM operations;
         DELETE FROM answers;
         DELETE FROM scores;
@@ -255,6 +256,7 @@ export class Contest {
         'submissions',
         'submission_reviews',
         'scores',
+        'revision_watermarks',
         'participant_ips',
       ]) {
         this.db.prepare(`DELETE FROM ${table} WHERE participantId=?`).run(id);

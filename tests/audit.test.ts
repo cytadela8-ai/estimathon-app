@@ -154,3 +154,29 @@ it('returns revision watermarks even when every submission is excluded', () => {
   );
   expect(f.store.snapshot(id)).toEqual({ answers: [], revisions: { [op.questionId]: 10 } });
 });
+it('filters late arrivals against each question deadline, including exact fractional boundaries', () => {
+  const f = setup();
+  const id = f.ids[0]!;
+  const first = f.op(1);
+  f.store.save(id, first, 4999);
+  f.store.save(id, f.op(2), 5000);
+  f.contest.snapshot(7000);
+  f.contest.command('next', 8000);
+  const second = f.op(1);
+  f.store.save(id, second, 12000);
+  const query = {
+    page: 1,
+    auditPage: 1,
+    resultsPage: 1,
+    questionId: '',
+    participant: '',
+    value: '',
+    lateOnly: true,
+    minimumSeconds: 3,
+  };
+  expect(f.store.audit(query).items.map((row) => row.receivedAt)).toEqual([12000, 5000]);
+  expect(f.store.audit({ ...query, minimumSeconds: 3.001 }).items).toEqual([]);
+  expect(f.store.audit({ ...query, questionId: first.questionId }).items).toHaveLength(1);
+  f.db.prepare('UPDATE question_windows SET endsAt=NULL WHERE questionId=?').run(second.questionId);
+  expect(f.store.audit(query).items.map((row) => row.questionId)).toEqual([first.questionId]);
+});

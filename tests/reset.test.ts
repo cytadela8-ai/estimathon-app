@@ -62,6 +62,7 @@ it('returns to setup, preserves config/accounts and clears every contest ledger'
   const f = setup();
   const previous = structuredClone(f.contest.data);
   const backup = f.contest.reset();
+  expect(f.answers.snapshot(f.session.participant.id).revisions).toEqual({});
   expect(backup).toContain('contest.sqlite.backup-');
   expect(statSync(join(f.directory, backup)).mode & 0o777).toBe(0o600);
   expect(f.contest.state).toEqual({

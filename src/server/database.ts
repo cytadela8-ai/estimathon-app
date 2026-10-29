@@ -39,7 +39,12 @@ export function openDatabase(path: string): Database.Database {
       timing TEXT, eligible INTEGER NOT NULL, status TEXT NOT NULL, excluded INTEGER NOT NULL DEFAULT 0,
       PRIMARY KEY(participantId, operationId)
     );
-    CREATE INDEX IF NOT EXISTS submissions_question ON submissions(questionId, participantId);
+    DROP INDEX IF EXISTS submissions_question;
+    CREATE INDEX IF NOT EXISTS submissions_counted_revision
+      ON submissions(participantId,questionId,revision DESC,operationId DESC)
+      WHERE eligible=1 AND excluded=0;
+    CREATE INDEX IF NOT EXISTS submissions_question_arrival
+      ON submissions(questionId,receivedAt DESC,operationId,participantId);
     CREATE INDEX IF NOT EXISTS submissions_arrival
       ON submissions(receivedAt DESC,operationId,participantId);
     CREATE INDEX IF NOT EXISTS answers_arrival
@@ -59,5 +64,24 @@ export function openDatabase(path: string): Database.Database {
     CREATE INDEX IF NOT EXISTS reviews_operation
       ON submission_reviews(participantId,operationId,id DESC);
   `);
+  initializeWatermarks(db);
   return db;
+}
+
+/** Initialize existing history once; normal startup and snapshots only read the bounded table. */
+function initializeWatermarks(db: Database.Database): void {
+  const exists = db
+    .prepare(`SELECT 1 FROM sqlite_master
+    WHERE type='table' AND name='revision_watermarks'`)
+    .get();
+  if (exists) return;
+  db.transaction(() => {
+    db.exec(`CREATE TABLE revision_watermarks (
+      participantId TEXT NOT NULL REFERENCES participants(id), questionId TEXT NOT NULL,
+      revision INTEGER NOT NULL, PRIMARY KEY(participantId,questionId)
+    );
+    INSERT INTO revision_watermarks(participantId,questionId,revision)
+      SELECT participantId,questionId,MAX(revision) FROM submissions
+      GROUP BY participantId,questionId;`);
+  })();
 }

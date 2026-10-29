@@ -117,6 +117,7 @@ it('deletes history and credentials, recalculates scores and disconnects all use
     'submissions',
     'submission_reviews',
     'scores',
+    'revision_watermarks',
     'participant_ips',
   ]) {
     expect(

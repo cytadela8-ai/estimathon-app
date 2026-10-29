@@ -33,34 +33,55 @@ export function auditEntries(
   db: Database.Database,
   query: AdminQuery = adminQuery(),
 ): Page<AuditEntry> {
-  const from = `FROM submissions s JOIN participants p ON p.id=s.participantId
-    LEFT JOIN question_windows w ON w.questionId=s.questionId
-    WHERE (@questionId='' OR s.questionId=@questionId)
-    AND instr(polish_lower(p.firstName || ' ' || p.lastName || ' ' || p.nickname),@participant)>0
-    AND instr(s.text,@value)>0
-    AND (@lateOnly=0 OR s.receivedAt-w.endsAt>=@minimumMs)`;
-  const params = {
-    questionId: query.questionId,
-    participant: query.participant,
-    value: query.value,
-    lateOnly: Number(query.lateOnly),
-    minimumMs: query.minimumSeconds * 1000,
-  };
+  const { from, params } = auditFilter(query);
   const { total } = db.prepare(`SELECT COUNT(*) AS total ${from}`).get(params) as { total: number };
   const pagination = pageInfo(total, query.auditPage);
   const rows = db
-    .prepare(`SELECT s.participantId,s.operationId,s.questionId,s.revision,s.text,s.receivedAt,
+    .prepare(`WITH visible AS (
+      SELECT s.* ${from} ORDER BY s.receivedAt DESC,s.operationId,s.participantId
+      LIMIT @limit OFFSET @offset
+    ) SELECT s.participantId,s.operationId,s.questionId,s.revision,s.text,s.receivedAt,
     s.status,s.excluded,s.timing AS timingJson,p.nickname,p.firstName,p.lastName,
     w.endsAt AS deadlineAt,
     EXISTS(SELECT 1 FROM answers a WHERE a.participantId=s.participantId
       AND a.questionId=s.questionId AND a.operationId=s.operationId) AS counted
-    ${from} ORDER BY s.receivedAt DESC,s.operationId,s.participantId LIMIT @limit OFFSET @offset`)
+    FROM visible s JOIN participants p ON p.id=s.participantId
+    LEFT JOIN question_windows w ON w.questionId=s.questionId
+    ORDER BY s.receivedAt DESC,s.operationId,s.participantId`)
     .all({
       ...params,
       limit: pagination.pageSize,
       offset: (pagination.page - 1) * pagination.pageSize,
     }) as Submission[];
   return { ...pagination, items: rows.map((row) => auditEntry(db, row)) };
+}
+
+/** Apply only active predicates; late reads start at each question's indexed arrival boundary. */
+function auditFilter(query: AdminQuery) {
+  const predicates: string[] = [];
+  const params: Record<string, string | number> = {};
+  let from = 'FROM submissions s';
+  if (query.lateOnly) {
+    from = `FROM question_windows w CROSS JOIN submissions s
+      ON s.questionId=w.questionId AND s.receivedAt>=w.endsAt+@minimumMs`;
+    predicates.push('w.endsAt IS NOT NULL');
+    params['minimumMs'] = query.minimumSeconds * 1000;
+  }
+  if (query.questionId) {
+    predicates.push(`${query.lateOnly ? 'w' : 's'}.questionId=@questionId`);
+    params['questionId'] = query.questionId;
+  }
+  if (query.participant) {
+    predicates.push(`s.participantId IN (SELECT id FROM participants
+      WHERE instr(polish_lower(firstName || ' ' || lastName || ' ' || nickname),@participant)>0)`);
+    params['participant'] = query.participant;
+  }
+  if (query.value) {
+    predicates.push('instr(s.text,@value)>0');
+    params['value'] = query.value;
+  }
+  if (predicates.length) from += ` WHERE ${predicates.join(' AND ')}`;
+  return { from, params };
 }
 
 /** Read a bounded page of decisions for one operation, newest page first. */

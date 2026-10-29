@@ -18,8 +18,8 @@ export class AnswerStore {
   /** Restore counted answers and revision watermarks, including excluded submissions. */
   snapshot(participantId: string): AnswerState {
     const revisions = this.db
-      .prepare(`SELECT questionId,MAX(revision) AS revision FROM submissions
-      WHERE participantId=? GROUP BY questionId`)
+      .prepare(`SELECT questionId,revision FROM revision_watermarks
+      WHERE participantId=?`)
       .all(participantId) as { questionId: string; revision: number }[];
     return {
       answers: this.all(participantId),
@@ -107,6 +107,11 @@ export class AnswerStore {
         Number(eligible),
         status,
       );
+    this.db
+      .prepare(`INSERT INTO revision_watermarks(participantId,questionId,revision) VALUES(?,?,?)
+        ON CONFLICT(participantId,questionId) DO UPDATE
+        SET revision=MAX(revision_watermarks.revision,excluded.revision)`)
+      .run(participantId, op.questionId, op.revision);
     // A paused operation can become eligible on resume without changing its first arrival.
     if (eligible)
       this.db

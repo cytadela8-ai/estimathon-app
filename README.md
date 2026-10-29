@@ -305,7 +305,9 @@ expanding its history fetches older decisions on demand.
 6. Valid pending edits keep retrying for previous questions too, with no late-delivery cutoff.
    Invalid drafts remain local; invalid numeric submissions show an error. Paused operations stay
    pending until resume. Storage failures are visible and no server save is claimed.
-7. Revision watermarks persist separately from the counted draft. Recovery snapshots include
+7. Revision watermarks persist in a per-participant/question SQLite table, updated in the same
+   transaction as submission history. Existing databases initialize it from history once on first
+   startup; reset clears it. Watermarks remain separate from the counted draft. Recovery snapshots include
    the highest observed revisions, including excluded submissions, so moderation cannot reset the
    next revision counter. Authoritative snapshots can revert confirmed answers while preserving
    genuinely unacknowledged local edits.
@@ -438,6 +440,12 @@ late synchronization or host reviews; failed loads retry automatically.
 returns `{ version, questions }`, where each personal row contains `questionId`, `number`, `text`,
 `answer` and `score`. It exposes neither other participants' answers nor correct-answer fields,
 and returns HTTP 409 before the contest finishes.
+
+### Revision-history performance
+
+See [performance testing](scripts/README.md) for isolated 100-bot load tests and testing copies of
+existing contest databases. The [stepwise optimization results](scripts/history-performance.md)
+compare real production HTTP, Socket.IO, and browser probes on the same retained revision history.
 
 ### Participant moderation and IP history
 
