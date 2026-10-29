@@ -1,0 +1,10 @@
+# Dashboard definitions live in Git and are reloaded from the read-only mounted directory.
+apiVersion: 1
+providers:
+  - name: Estymathon
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    updateIntervalSeconds: 10
+    options:
+      path: /var/lib/grafana/dashboards

@@ -2,7 +2,14 @@
 {
 	auto_https off
 	ocsp_stapling off
+	metrics
+	servers :443 {
+		name estymathon_https
+	}
 	servers :80 {
+		protocols h1
+	}
+	servers :9180 {
 		protocols h1
 	}
 }
@@ -15,5 +22,11 @@ https://{$DOMAIN} {
 	tls /etc/caddy/certs/fullchain.pem /etc/caddy/certs/privkey.pem
 	encode zstd gzip
 	header Strict-Transport-Security "max-age=31536000"
+	respond /internal/* 404
 	reverse_proxy app:3000
+}
+
+# Not published on the host. The admin API remains on loopback, separate from this listener.
+http://:9180 {
+	metrics /metrics
 }

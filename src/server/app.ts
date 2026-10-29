@@ -12,11 +12,13 @@ import type { ClientEvents, ServerEvents } from '#est-shared/protocol';
 import { registerAuth } from '#est-server/auth';
 import { registerRoutes } from '#est-server/routes';
 import { registerRealtime } from '#est-server/realtime';
+import { registerMetrics } from '#est-server/metrics';
 interface Options {
   databasePath: string;
   password: string;
   staticPath?: string;
   trustProxy?: boolean;
+  metrics?: boolean;
 }
 /** Create an isolated server instance; caller owns listening and graceful shutdown. */
 export async function createApp(options: Options) {
@@ -51,6 +53,7 @@ export async function createApp(options: Options) {
   };
   registerRoutes(app, context);
   registerRealtime(app, io, context);
+  if (options.metrics) registerMetrics(app, io);
   const timer = setInterval(() => {
     contest.tick();
     if (dirty || lastVersion !== contest.state.version) {

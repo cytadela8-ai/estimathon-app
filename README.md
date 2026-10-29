@@ -185,6 +185,61 @@ Switching origins requires participant recovery codes because browser storage is
 Check certificate expiration and test backups before a live contest. Docker marks failed health
 checks as unhealthy; the restart policy restarts exited processes, not merely unhealthy containers.
 
+### Live Caddy monitoring
+
+For the HTTPS deployment, an optional Prometheus/Grafana overlay provides a preconfigured dashboard.
+Set a dedicated `GRAFANA_ADMIN_PASSWORD` in `.env.production`, then run:
+
+```bash
+docker compose --env-file .env.production -f docker-compose.https.yml \
+  -f docker-compose.monitoring.yml up -d --build --wait
+```
+
+Open **http://127.0.0.1:3100**, log in as `admin` with that password, and open **Estymathon · Caddy**
+(also the default home dashboard). The password initializes Grafana on its first startup; change
+an existing account's password in Grafana rather than editing the environment variable.
+From another machine, use an SSH tunnel and open the same local URL:
+
+```bash
+ssh -N -L 3100:127.0.0.1:3100 USER@SERVER_LAN_IP
+```
+
+The dashboard refreshes every **5 seconds**, showing:
+
+- HTTP latency p50, **p95**, and p99, calculated over a rolling **one-minute** window.
+- Completed requests per second, HTTP status rates, and 5xx responses per second.
+- Live Socket.IO connections, split into polling and WebSocket transports, including projectors.
+- Active proxied requests/streams, Caddy availability, CPU usage, and resident memory.
+
+Percentiles are estimates from Caddy's fixed histogram buckets, not exact per-request timings.
+They measure completed HTTP requests at the proxy, including Socket.IO long polling; long polls can
+therefore increase them during an otherwise idle contest. HTTP 101 WebSocket lifetimes are excluded.
+These metrics do not measure Socket.IO message acknowledgments or browser network round-trip times.
+Socket.IO connection counts represent connected app sockets, not unique people or all TCP sockets;
+idle HTTP keep-alive connections and HTTP/2 multiplexing are not counted as Socket.IO connections.
+See [Caddy's metric definitions](https://caddyserver.com/docs/metrics) for the underlying histograms.
+Allow two scrape intervals and some requests before expecting latency data. With no completed
+requests in the window, latency panels show no samples.
+
+Only Grafana publishes a host port, bound to loopback. Prometheus and the metrics listeners stay
+inside Docker; Caddy's administrative API remains on container loopback. The app's metrics endpoint
+is enabled only by the monitoring overlay and is blocked from the public HTTPS routes. Monitoring
+uses local provisioned dashboards and disables Grafana update checks, reporting, and plugin downloads.
+It does not require a cloud account or Internet access after the images have been downloaded.
+
+Prometheus retains at most **7 days or 1 GB** of time-series blocks, whichever limit is reached first;
+its WAL and current head data use additional space. `prometheus-data` and `grafana-data` volumes
+persist history and dashboard accounts independently of the contest database. Use both Compose files
+for subsequent monitoring operations. To stop monitoring while leaving the contest running:
+
+```bash
+docker compose --env-file .env.production -f docker-compose.https.yml \
+  -f docker-compose.monitoring.yml stop grafana prometheus
+```
+
+Provisioning files and dashboard queries live in `deploy/monitoring/`; no manual dashboard import
+or plugin installation is needed. This overlay requires the HTTPS file, which defines Caddy.
+
 ## Questions and rules
 
 The dashboard supports editing, JSON import and JSON export. Import is staged locally; inspect it
