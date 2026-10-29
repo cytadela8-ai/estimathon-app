@@ -2,32 +2,35 @@
   import { now } from '#est-client/clock';
   import { client } from '#est-client/sync';
   import Timer from '#est-client/Timer.svelte';
+  import Leaderboard from '#est-client/Leaderboard.svelte';
+  import { answerDistribution, formatAxis } from '#est-client/distribution';
+  import { competitionPlaces } from '#est-shared/ranking';
   import Podium from '#est-client/Podium.svelte';
   const s = $derived($client.snapshot);
   const phase = $derived(s?.state.phase ?? 'lobby');
   const questionNumber = $derived(String((s?.state.index ?? 0) + 1).padStart(2, '0'));
   const elapsed = $derived($now + $client.offset - (s?.state.resultsAt ?? $now));
   const submitted = $derived((s?.results ?? []).filter((r) => r.answer !== null));
-  const maximum = $derived(Math.max(1, ...submitted.map((r) => Math.log10(Number(r.answer) + 1))));
-  const ranked = $derived(s?.standings ?? []);
-  const leaderPlaces = $derived([
-    ...new Set(ranked.filter((person) => person.place <= 5).map((person) => person.place)),
-  ]);
-  const bins = $derived(
-    Array.from(
-      { length: 20 },
-      (_, i) =>
-        submitted.filter(
-          (r) => Math.min(19, Math.floor((Math.log10(Number(r.answer) + 1) / maximum) * 20)) === i,
-        ).length,
+  const distribution = $derived(
+    answerDistribution(
+      submitted.map((result) => result.answer!),
+      s?.correct ?? '1',
     ),
   );
-  const highest = $derived(Math.max(1, ...bins));
+  const highest = $derived(Math.max(1, ...distribution.bins));
+  const ranked = $derived(s?.standings ?? []);
+  const questionRanked = $derived(
+    competitionPlaces(
+      [...(s?.results ?? [])].sort(
+        (a, b) => b.score - a.score || a.nickname.localeCompare(b.nickname, 'pl'),
+      ),
+    ),
+  );
 </script>
 
 <div class="screen-shell">
   <header class="site-header">
-    <a class="brand" href="/play"><span class="brand-mark" aria-hidden="true">≈</span>estymator</a>
+    <a class="brand" href="/play"><span class="brand-mark" aria-hidden="true">≈</span>estymathon</a>
     <div class="connection-status">
       <span class="live-dot" class:offline={!$client.connected}></span>{$client.connected
         ? 'Połączono'
@@ -82,21 +85,27 @@
           <section class="distribution">
             <h2>Wasze odpowiedzi <span>{submitted.length}</span></h2>
             <div class="chart">
-              {#each bins as count, i}<div
+              {#each distribution.bins as count, i}<div
                   class="chart-column"
+                  class:overflow-bin={i === 0 || i === 13}
                   style={`--height:${(count / highest) * 100}%;--delay:${i * 45}ms`}
                 >
                   <span>{count || ''}</span>
                   <div></div>
                 </div>{/each}
+              {#if elapsed > 3500}<div class="chart-center" aria-hidden="true"></div>{/if}
             </div>
             <div class="chart-labels">
-              <span>1</span><span>Skala logarytmiczna</span><span
-                >{Math.max(1, ...submitted.map((r) => Number(r.answer))).toLocaleString(
-                  'pl-PL',
-                )}</span
-              >
+              <span>← &lt; −3M</span><span>Skala logarytmiczna</span><span>&gt; +3M →</span>
             </div>
+            {#if elapsed > 3500}<div class="chart-axis" aria-label="Zakres odpowiedzi">
+                {#each distribution.ticks as tick}<span>{formatAxis(tick)}</span>{/each}
+              </div>
+              <p class="chart-scale">
+                M = {distribution.scale.toLocaleString('pl-PL', {
+                  maximumSignificantDigits: 3,
+                })} · mediana błędu logarytmicznego (minimum 0,05)
+              </p>{/if}
             {#if !submitted.length}<p>Brak przyjętych odpowiedzi.</p>{/if}
           </section>
           {#if elapsed > 3500}<section class="correct-reveal">
@@ -104,30 +113,10 @@
               <div class="correct-value">{BigInt(s?.correct ?? '0').toLocaleString('pl-PL')}</div>
             </section>{/if}
         </div>
-        {#if elapsed > 7000}<section class="screen-leaderboard">
-            <h2>Klasyfikacja łączna</h2>
-            {#if ranked.length}<div class="top-list">
-                {#each leaderPlaces as place}
-                  {@const group = ranked.filter((person) => person.place === place)}
-                  <div class="leader-row">
-                    <span class="rank">{String(place).padStart(2, '0')}</span>
-                    <div class="podium-names" class:many={group.length > 3}>
-                      <div
-                        class:scrolling-results={group.length > 3}
-                        style={`--scroll-duration:${Math.max(20, group.length * 2)}s`}
-                      >
-                        {#each group as person}<strong>{person.nickname}</strong>{/each}
-                      </div>
-                    </div>
-                    <span
-                      >{group[0]!.score.toLocaleString('pl-PL')} pkt
-                      {#if group.length > 1}
-                        · {group.length} ex aequo{/if}</span
-                    >
-                  </div>
-                {/each}
-              </div>{:else}<p>Brak sklasyfikowanych wyników.</p>{/if}
-          </section>{/if}
+        {#if elapsed > 7000}<div class="question-leaderboards">
+            <Leaderboard title="Klasyfikacja pytania" standings={questionRanked} />
+            <Leaderboard title="Klasyfikacja łączna" standings={ranked} />
+          </div>{/if}
       </div>{/if}
   </main>
 </div>

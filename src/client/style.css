@@ -549,17 +549,17 @@ summary {
 }
 .reveal-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr);
   gap: 48px;
   min-height: 240px;
 }
 .screen-results h2 {
-  font-size: 22px;
+  font-size: 28px;
 }
 .screen-results h2 span {
   display: inline-block;
   font-weight: 400;
-  font-size: 15px;
+  font-size: 24px;
   color: #c7cfef;
   margin-left: 12px;
 }
@@ -567,6 +567,7 @@ summary {
   min-width: 0;
 }
 .chart {
+  position: relative;
   height: 190px;
   display: flex;
   align-items: end;
@@ -584,7 +585,7 @@ summary {
   min-width: 0;
 }
 .chart-column > div {
-  height: var(--height);
+  height: calc(var(--height) * 0.8);
   min-height: 2px;
   background: var(--pink);
   width: 100%;
@@ -594,14 +595,15 @@ summary {
   animation-delay: var(--delay);
 }
 .chart-column span {
-  font-size: 14px;
+  font-size: 28px;
+  font-weight: 650;
   color: white;
 }
 .chart-labels {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  font-size: 13px;
+  font-size: 20px;
   color: #c7cfef;
   margin-top: 12px;
 }
@@ -621,18 +623,57 @@ summary {
   justify-content: center;
 }
 .correct-reveal .correct-value {
+  overflow-wrap: anywhere;
   color: var(--ink);
   font-size: clamp(32px, 5vw, 76px);
   margin-bottom: 0;
 }
 .screen-leaderboard {
-  margin-top: 44px;
+  min-width: 0;
+  margin-top: 28px;
   animation: reveal 0.5s both;
+}
+.question-leaderboards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 48px;
 }
 .top-list {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 20px;
+}
+.chart-axis {
+  display: flex;
+  justify-content: space-between;
+  margin: 12px calc(100% / 14) 0;
+  gap: 12px;
+  color: white;
+  font-size: clamp(20px, 2vw, 32px);
+  font-weight: 650;
+}
+.chart-axis span {
+  flex: 1;
+  min-width: 0;
+}
+.chart-axis span:nth-child(2) {
+  text-align: center;
+  color: var(--yellow);
+}
+.chart-axis span:last-child {
+  text-align: right;
+}
+.chart-center {
+  position: absolute;
+  inset: 0 auto 0 50%;
+  border-left: 3px dashed var(--yellow);
+  pointer-events: none;
+}
+.overflow-bin > div {
+  background: #c7cfef;
+}
+.chart-scale {
+  color: #c7cfef;
+  font-size: 18px;
+  margin-bottom: 0;
 }
 .leader-row {
   display: flex;
@@ -651,12 +692,14 @@ summary {
   color: var(--yellow);
 }
 .top-list .leader-row {
-  flex-direction: column;
-  align-items: start;
-  border-top: 2px solid var(--pink);
-  border-bottom: 0;
-  gap: 10px;
-  font-size: 16px;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 10px 0;
+  font-size: 22px;
+}
+.top-list .leader-row > span:last-child {
+  text-align: right;
 }
 .top-list .leader-row:first-child {
   border-color: var(--yellow);
@@ -1113,15 +1156,28 @@ td .text-button {
     grid-template-columns: 1fr;
     gap: 28px;
   }
-  .top-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .question-leaderboards {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .top-list .leader-row {
+    font-size: 18px;
+    grid-template-columns: 36px minmax(0, 1fr) auto;
+  }
+  .chart-labels {
+    font-size: 14px;
+    gap: 4px;
+  }
+  .chart-axis {
+    margin-inline: 0;
+    font-size: 18px;
   }
   .chart {
     height: 150px;
     gap: 4px;
   }
   .chart-column span {
-    font-size: 11px;
+    font-size: 18px;
   }
   .correct-reveal .correct-value {
     font-size: 48px;

@@ -152,7 +152,7 @@
     );
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'estymator-pytania.json';
+    link.download = 'estymathon-pytania.json';
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -171,7 +171,7 @@
 
 <div class="admin-shell">
   <header class="site-header">
-    <a class="brand" href="/play"><span class="brand-mark" aria-hidden="true">≈</span>estymator</a>
+    <a class="brand" href="/play"><span class="brand-mark" aria-hidden="true">≈</span>estymathon</a>
     <div class="header-links">
       <a href="/screen" target="_blank" rel="noreferrer">Ekran projektora</a>{#if token}<button
           class="text-button"

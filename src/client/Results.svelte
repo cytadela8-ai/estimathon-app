@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { competitionPlaces } from '#est-shared/ranking';
   import { onMount } from 'svelte';
   import { api } from '#est-client/sync';
   import { difference, filterAudit, timestamp } from '#est-client/audit-view';
@@ -120,6 +121,11 @@
     <label>Uczestnik — imię, nazwisko lub pseudonim<input bind:value={participant} /></label>
   </div>
   {#each questions as q}
+    {@const ranked = competitionPlaces(
+      [...q.results].sort(
+        (a, b) => b.score - a.score || a.nickname.localeCompare(b.nickname, 'pl'),
+      ),
+    )}
     <h3>{data.questions.indexOf(q) + 1}. {q.question.text}</h3>
     <p>
       Prawidłowa odpowiedź: <strong>{q.question.correct}</strong><br />Koniec (serwer, UTC):
@@ -127,11 +133,16 @@
     </p>
     <div class="table-scroll">
       <table aria-label={`Wyniki pytania ${data.questions.indexOf(q) + 1}`}>
-        <thead><tr><th>Uczestnik</th><th>Odpowiedź liczona</th><th>Punkty</th></tr></thead>
+        <thead
+          ><tr><th>Miejsce</th><th>Uczestnik</th><th>Odpowiedź liczona</th><th>Punkty</th></tr
+          ></thead
+        >
         <tbody
-          >{#each q.results.filter( (result) => matchingParticipants.has(result.participantId) ) as result}<tr
+          >{#each ranked.filter( (result) => matchingParticipants.has(result.participantId) ) as result}<tr
             >
-              <td>{result.nickname}</td><td>{result.answer ?? 'Brak odpowiedzi'}</td>
+              <td>{q.revealed ? result.place : '—'}</td><td>{result.nickname}</td><td
+                >{result.answer ?? 'Brak odpowiedzi'}</td
+              >
               <td>{q.revealed ? result.score : '—'}</td>
             </tr>{/each}</tbody
         >

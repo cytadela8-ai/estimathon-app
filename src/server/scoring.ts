@@ -1,4 +1,5 @@
 /** Per-question batch scoring; only confirmed valid submissions contribute to the median error. */
+import { logarithmicScale } from '#est-shared/estimates';
 import { isPositiveInteger } from '#est-shared/protocol';
 interface Estimate {
   participantId: string;
@@ -33,11 +34,10 @@ export function scoreQuestion(answers: Estimate[], correct: string): Score[] {
       ),
     ),
   }));
-  const ordered = errors.map((answer) => answer.error).sort((a, b) => a - b);
-  const middle = Math.floor(ordered.length / 2);
-  const median =
-    ordered.length % 2 === 0 ? (ordered[middle - 1]! + ordered[middle]!) / 2 : ordered[middle]!;
-  const normalization = Math.max(0.05, median);
+  const normalization = logarithmicScale(
+    answers.map((answer) => answer.text),
+    correct,
+  );
   return errors.map((answer) => ({
     participantId: answer.participantId,
     score: Math.round(1000 / (1 + answer.error / normalization)),

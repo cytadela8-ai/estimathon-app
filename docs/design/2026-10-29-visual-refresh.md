@@ -1,4 +1,4 @@
-# Estymator visual refresh
+# Estymathon visual refresh
 
 The brief is a playful mathematical and computing identity, keeping the existing form of the
 participant, projector and host views. Polish copy should explain actions and state, without slogans.
@@ -24,7 +24,7 @@ The projector is the same working sheet at room scale, with a blue field and yel
 
 ```text
 Participant                Projector                     Host
-≈ estymator    account     ≈ estymator      connection    ≈ estymator       screen
+≈ estymathon    account     ≈ estymathon      connection    ≈ estymathon       screen
                            Question n / total            Host dashboard
 Question n / total  time   question text                 status + tabs
 question text                    countdown               controls or tables

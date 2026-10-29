@@ -8,5 +8,5 @@
   onMount(initialize);
 </script>
 
-<svelte:head><meta name="description" content="Estymator — konkurs estymacji." /></svelte:head>
+<svelte:head><meta name="description" content="Estymathon — konkurs estymacji." /></svelte:head>
 {#if path === '/screen'}<Screen />{:else if path === '/admin'}<Admin />{:else}<Play />{/if}

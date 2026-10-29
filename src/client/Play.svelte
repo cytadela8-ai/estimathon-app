@@ -44,7 +44,7 @@
 
 <div class="play-shell">
   <header class="site-header">
-    <span class="brand"><span class="brand-mark" aria-hidden="true">≈</span>estymator</span>
+    <span class="brand"><span class="brand-mark" aria-hidden="true">≈</span>estymathon</span>
     {#if $client.session}<details class="account" open={!!initialRecovery}>
         <summary>{$client.session.participant.nickname}</summary>
         <aside class="card account-panel">

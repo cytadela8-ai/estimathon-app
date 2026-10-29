@@ -65,9 +65,13 @@ describe('projector presentation', () => {
     const value = snapshot();
     expect(show(value)).toContain('Wasze odpowiedzi');
     expect(show(value)).not.toContain('Prawidłowa odpowiedź');
+    expect(show(value)).not.toContain('Zakres odpowiedzi');
+    expect(show(value)).not.toContain('chart-center');
+    expect(show(value)).not.toContain('Klasyfikacja pytania');
     expect(show(value)).not.toContain('Klasyfikacja łączna');
     vi.setSystemTime(14000);
     expect(show(value)).toContain('Prawidłowa odpowiedź');
+    expect(show(value)).toContain('Zakres odpowiedzi');
     expect(show(value)).not.toContain('Klasyfikacja łączna');
     vi.setSystemTime(18000);
     expect(show(value)).toContain('Klasyfikacja łączna');
@@ -154,4 +158,28 @@ it('retains every participant tied at the fifth place instead of truncating the 
   expect(html).toContain('Tied 0');
   expect(html).toContain('Tied 7');
   expect(html).toContain('8 ex aequo');
+});
+
+it('ranks question scores independently of overall standings and preserves ties and missing answers', () => {
+  const value = snapshot();
+  value.state.resultsAt = 1000;
+  value.results = [
+    { participantId: 'a', nickname: 'Ania', answer: '100', score: 1000 },
+    { participantId: 'b', nickname: 'Bartek', answer: '100', score: 1000 },
+    { participantId: 'c', nickname: 'Celina', answer: null, score: 0 },
+  ];
+  value.standings = [
+    { participantId: 'c', nickname: 'Celina', score: 2000, place: 1 },
+    { participantId: 'a', nickname: 'Ania', score: 1000, place: 2 },
+    { participantId: 'b', nickname: 'Bartek', score: 1000, place: 2 },
+  ];
+  const html = show(value);
+  const question = html.split('aria-label="Klasyfikacja pytania"')[1]!.split('</section>')[0]!;
+  const overall = html.split('aria-label="Klasyfikacja łączna"')[1]!.split('</section>')[0]!;
+  expect(question.indexOf('Ania')).toBeLessThan(question.indexOf('Celina'));
+  expect(question).toContain('2 ex aequo');
+  expect(question).toContain('03');
+  expect(question).not.toContain('02');
+  expect(question).toContain('0 pkt');
+  expect(overall.indexOf('Celina')).toBeLessThan(overall.indexOf('Ania'));
 });

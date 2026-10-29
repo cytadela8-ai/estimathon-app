@@ -1,4 +1,7 @@
-# Estymator
+# Estymathon
+
+The application is named Estymathon. Existing `estymator.*` browser-storage keys and
+`data/estymator.sqlite` remain unchanged to preserve sessions, drafts, and saved contests.
 
 A local-network estimation contest. Polish participant, projector and host interfaces; English
 source and documentation. One Node.js process serves the built Svelte app, HTTP API and Socket.IO.
@@ -265,3 +268,15 @@ GHSA-gcqx-w48m-w2h4 with no patched version available at implementation time. It
 build configuration only and is not shipped in the browser or loaded by the production server.
 Production dependencies pass the moderate-severity audit. Recheck the development advisory before
 changing tooling or accepting untrusted build configuration.
+
+### Question results
+
+After each question, the projector shows separate top-five rankings for that question and the
+whole contest, including shared places. The host's question tables show all participants in
+score order with their question places, independently of the overall ranking.
+
+The answer histogram is centered on the correct answer and spans ±3M in logarithmic space.
+M is the same median absolute logarithmic error used in scoring, with a minimum of 0.05.
+Twelve equal-width log buckets cover the range; two additional overflow buckets retain extreme
+answers. Numeric axis labels and the center marker appear with the correct-answer reveal.
+Late answers and host reviews automatically update both rankings and the chart.
