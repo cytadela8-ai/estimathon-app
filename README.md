@@ -35,6 +35,10 @@ the host can also finish early from a question's results. There is no automatic 
 Participants remain on a minimal `/play` screen with no navigation to other views. Identity and
 recovery stay in an expandable account panel on the same page.
 
+The interface uses locally bundled Bricolage Grotesque with Polish glyphs. Font licensing and
+source details are in [public/fonts/README.md](public/fonts/README.md). All visual assets work
+without Internet access.
+
 Each database represents **one contest**. To run another, stop the server and set `DATABASE_PATH`
 to a new filename. Previous databases remain intact. Configuration freezes at contest start.
 

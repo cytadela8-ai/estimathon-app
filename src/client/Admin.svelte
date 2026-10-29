@@ -47,7 +47,7 @@
       overview = await api<Overview>('/api/admin/overview', undefined, token, 'GET');
       if (initial || !config) {
         config = { ...overview.config };
-        questions = structuredClone(overview.questions);
+        questions = overview.questions.map((question) => ({ ...question }));
       }
     } catch (e) {
       if (isUnauthorized(e)) {
@@ -154,22 +154,18 @@
 
 <div class="admin-shell">
   <header class="site-header">
-    <a class="brand" href="/play"
-      ><span class="brand-icon">e<span>↗</span></span>estymator<span class="brand-dot">.</span></a
-    >
+    <a class="brand" href="/play"><span class="brand-mark" aria-hidden="true">≈</span>estymator</a>
     <div class="header-links">
-      <a href="/screen" target="_blank" rel="noreferrer">Ekran projektora ↗</a>{#if token}<button
+      <a href="/screen" target="_blank" rel="noreferrer">Ekran projektora</a>{#if token}<button
           class="text-button"
           onclick={logout}>Wyloguj</button
         >{/if}
     </div>
   </header>
   <main class="admin-main">
-    <div class="eyebrow">PANEL PROWADZĄCEGO</div>
-    <h1>Wszystko <em>pod kontrolą.</em></h1>
+    <h1>Panel prowadzącego</h1>
     {#if !token}<section class="card login-card">
         <h2>Zaloguj się</h2>
-        <p>Panel jest dostępny wyłącznie dla prowadzącego.</p>
         <form
           onsubmit={(e) => {
             e.preventDefault();
@@ -183,25 +179,25 @@
               autocomplete="current-password"
               required
             /></label
-          ><button class="primary">Zaloguj się →</button>
+          ><button class="primary">Zaloguj się</button>
         </form>
       </section>
     {:else}
       <div class="admin-stats">
-        <div><small>STATUS KONKURSU</small><strong>{labels[phase]}</strong></div>
+        <div><small>Konkurs</small><strong>{labels[phase]}</strong></div>
         <div>
-          <small>UCZESTNICY</small><strong
+          <small>Uczestnicy</small><strong
             >{overview?.participants.length ?? 0}<span>
               / {overview?.participants.filter((p) => p.connections > 0).length ?? 0} online</span
             ></strong
           >
         </div>
         <div>
-          <small>ODPOWIEDZI</small><strong
+          <small>Odpowiedzi</small><strong
             >{$client.snapshot?.answerCount ?? 0}<span> w tym pytaniu</span></strong
           >
         </div>
-        <div><small>POZOSTAŁY CZAS</small><Timer /></div>
+        <div><small>Pozostały czas</small><Timer /></div>
       </div>
       <nav class="tabs" aria-label="Sekcje panelu">
         {#each sections as item}<button
@@ -211,20 +207,16 @@
       </nav>
       {#if tab === 'contest'}<section class="card control-card">
           <div class="mini-label">
-            PYTANIE {Math.max(0, ($client.snapshot?.state.index ?? -1) + 1)} / {$client.snapshot
+            Pytanie {Math.max(0, ($client.snapshot?.state.index ?? -1) + 1)} / {$client.snapshot
               ?.totalQuestions ?? 0}
           </div>
-          <h2>{$client.snapshot?.question?.text ?? 'Gotowi na pierwszą estymację?'}</h2>
-          <p>
-            {phase === 'lobby'
-              ? 'Dodaj pytania w ustawieniach, a następnie rozpocznij konkurs.'
-              : 'Przebieg konkursu aktualizuje się automatycznie na wszystkich urządzeniach.'}
-          </p>
+          <h2>{$client.snapshot?.question?.text ?? 'Konkurs nie rozpoczął się'}</h2>
+          {#if phase === 'lobby' && !questions.length}<p>Dodaj pytania w ustawieniach.</p>{/if}
           <div class="actions">
             <button
               class="primary"
               disabled={busy || phase !== 'lobby' || !questions.length}
-              onclick={() => command('start')}>Rozpocznij konkurs ↗</button
+              onclick={() => command('start')}>Rozpocznij konkurs</button
             ><button disabled={busy || phase !== 'active'} onclick={() => command('pause')}
               >Wstrzymaj</button
             ><button disabled={busy || phase !== 'paused'} onclick={() => command('resume')}
@@ -235,7 +227,7 @@
             ><button
               disabled={busy || !['active', 'paused', 'results'].includes(phase)}
               onclick={() => command('next')}
-              >{phase === 'results' ? 'Następne pytanie →' : 'Zamknij pytanie'}</button
+              >{phase === 'results' ? 'Następne pytanie' : 'Zamknij pytanie'}</button
             ><button
               class="danger"
               disabled={busy || phase !== 'results'}
@@ -243,14 +235,6 @@
             >
           </div>
         </section>
-        <aside class="notice">
-          <strong>Odpowiedzi zapisują się automatycznie</strong>
-          <p>Po zamknięciu pytania ekran czeka na synchronizację i ujawnia wyniki etapami.</p>
-          <p>
-            Punktacja: do 1000 pkt za pytanie. Błąd logarytmiczny jest porównywany z medianą błędów
-            przyjętych odpowiedzi.
-          </p>
-        </aside>
       {:else if tab === 'questions' && config}<section class="card">
           <h2>Ustawienia konkursu</h2>
           <fieldset disabled={phase !== 'lobby' || busy}>
@@ -277,9 +261,8 @@
               >
             </div>
             <p class="input-help">
-              Kolejne pytanie uruchamia prowadzący. Spóźnione odpowiedzi są synchronizowane bez
-              limitu i automatycznie przeliczają wyniki. Sprawdzaj ich czasy i wykluczaj podejrzane
-              operacje w monitoringu.
+              Kolejne pytania włączasz ręcznie. Spóźnione odpowiedzi liczą się automatycznie; możesz
+              je wykluczyć w monitoringu.
             </p>
             <div class="section-heading">
               <h2>Pytania <span>({questions.length})</span></h2>
@@ -329,7 +312,7 @@
                     correct: '',
                     seconds: config!.durationSeconds,
                   })}>+ Dodaj pytanie</button
-              ><button class="primary" onclick={save}>Zapisz konfigurację →</button>
+              ><button class="primary" onclick={save}>Zapisz konfigurację</button>
             </div>
           </fieldset>
         </section>
@@ -353,7 +336,7 @@
                     ><td
                       ><code>{person.recoveryCode}</code><button
                         class="text-button"
-                        onclick={() => showQR(person)}>Kod QR ↗</button
+                        onclick={() => showQR(person)}>Kod QR</button
                       ></td
                     ></tr
                   >{/each}</tbody
@@ -391,11 +374,6 @@
         {notice}
       </div>{/if}
   </main>
-  <footer>
-    <span>ESTYMATOR <span class="footer-cross">✳</span> PANEL PROWADZĄCEGO</span><a href="/play"
-      >Widok uczestnika ↗</a
-    >
-  </footer>
 </div>
 {#if qr}<div class="modal-backdrop" role="presentation">
     <div

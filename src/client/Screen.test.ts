@@ -53,7 +53,7 @@ describe('projector presentation', () => {
     const value = snapshot();
     value.state.phase = 'closing';
     const html = show(value);
-    expect(html).toContain('Synchronizujemy ostatnie odpowiedzi');
+    expect(html).toContain('Zbieramy ostatnie odpowiedzi');
     expect(html).not.toContain('Wasze odpowiedzi');
     expect(html).not.toContain('40075');
     expect(html).not.toContain('Ania');
@@ -61,13 +61,13 @@ describe('projector presentation', () => {
   it('reveals the distribution first, the answer next, and the leaderboard last', () => {
     const value = snapshot();
     expect(show(value)).toContain('Wasze odpowiedzi');
-    expect(show(value)).not.toContain('PRAWIDŁOWA ODPOWIEDŹ');
-    expect(show(value)).not.toContain('Czołówka konkursu');
+    expect(show(value)).not.toContain('Prawidłowa odpowiedź');
+    expect(show(value)).not.toContain('Klasyfikacja łączna');
     vi.setSystemTime(14000);
-    expect(show(value)).toContain('PRAWIDŁOWA ODPOWIEDŹ');
-    expect(show(value)).not.toContain('Czołówka konkursu');
+    expect(show(value)).toContain('Prawidłowa odpowiedź');
+    expect(show(value)).not.toContain('Klasyfikacja łączna');
     vi.setSystemTime(18000);
-    expect(show(value)).toContain('Czołówka konkursu');
+    expect(show(value)).toContain('Klasyfikacja łączna');
     expect(show(value)).toContain('Ania');
   });
   it('restores the appropriate reveal stage from server time and clock offset', () => {
@@ -84,9 +84,9 @@ describe('projector presentation', () => {
       confirmed: null,
     });
     const html = render(Screen).body;
-    expect(html).toContain('PONOWNE ŁĄCZENIE');
-    expect(html).toContain('PRAWIDŁOWA ODPOWIEDŹ');
-    expect(html).toContain('Czołówka konkursu');
+    expect(html).toContain('Ponowne łączenie');
+    expect(html).toContain('Prawidłowa odpowiedź');
+    expect(html).toContain('Klasyfikacja łączna');
   });
   it('reveals the podium before the complete final standings', () => {
     const value = snapshot();

@@ -90,7 +90,7 @@ test('participant and projector reconnect after the production server restarts',
   await expect(page.getByText('Zapisano na serwerze', { exact: true })).toBeVisible();
   await page.getByLabel('Twoja estymacja').fill('200');
   await expect.poll(async () => (await contest.results()).audit.length).toBe(2);
-  await expect(projector.getByText('NA ŻYWO', { exact: true })).toBeVisible();
+  await expect(projector.getByText('Połączono', { exact: true })).toBeVisible();
   expect((await contest.state()).state.endsAt).toBe(before);
   await expect(page.getByLabel('Twoja estymacja')).toHaveValue('200');
 });

@@ -111,7 +111,7 @@ test('host imports questions, audits late answers, excludes and restores them, a
     await group.contexts[0]!.setOffline(false);
     await expect.poll(async () => (await contest.state()).answerCount).toBe(3);
     await projectorContext.setOffline(false);
-    await expect(projector.getByText('PRAWIDŁOWA ODPOWIEDŹ', { exact: true })).toBeVisible();
+    await expect(projector.getByText('Prawidłowa odpowiedź', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Wyniki i monitoring', exact: true }).click();
     await auditFilters(page);
     const data = await contest.results();
@@ -132,4 +132,21 @@ test('host imports questions, audits late answers, excludes and restores them, a
     for (const context of group.contexts) await context.close();
     await projectorContext.close();
   }
+});
+
+test('host loads saved questions after login and reload without an error', async ({
+  page,
+  contest,
+}) => {
+  await contest.configure();
+  await host(page, contest);
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Pytania i ustawienia', exact: true }).click();
+  await expect(page.getByLabel('Treść pytania').nth(0)).toHaveValue('Pierwsze pytanie');
+  await expect(page.getByLabel('Treść pytania').nth(1)).toHaveValue('Drugie pytanie');
+  await page.reload();
+  await page.getByRole('button', { name: 'Pytania i ustawienia', exact: true }).click();
+  await expect(page.getByLabel('Treść pytania').nth(0)).toHaveValue('Pierwsze pytanie');
+  await expect(page.getByLabel('Treść pytania').nth(1)).toHaveValue('Drugie pytanie');
+  await expect(page.getByRole('alert')).toHaveCount(0);
 });

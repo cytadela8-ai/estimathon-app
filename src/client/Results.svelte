@@ -91,7 +91,6 @@
 
 <section class="card host-results">
   <h2>Klasyfikacja łączna</h2>
-  <p>Wspólne miejsca przy remisie (1, 1, 3). Brak odpowiedzi: 0 pkt.</p>
   <div class="table-scroll">
     <table aria-label="Klasyfikacja łączna">
       <thead
@@ -123,9 +122,8 @@
   {#each questions as q}
     <h3>{data.questions.indexOf(q) + 1}. {q.question.text}</h3>
     <p>
-      Prawidłowa odpowiedź: <strong>{q.question.correct}</strong> · Koniec odpowiadania (serwer,
-      UTC): {timestamp(q.deadlineAt)} ·
-      {q.revealed ? 'Wyniki ujawnione' : 'Punkty po ujawnieniu wyników'}
+      Prawidłowa odpowiedź: <strong>{q.question.correct}</strong><br />Koniec (serwer, UTC):
+      {timestamp(q.deadlineAt)}{#if !q.revealed}<br />Punkty po ujawnieniu wyników{/if}
     </p>
     <div class="table-scroll">
       <table aria-label={`Wyniki pytania ${data.questions.indexOf(q) + 1}`}>
@@ -142,9 +140,8 @@
   {/each}
   <h2>Historia dostarczenia odpowiedzi</h2>
   <p>
-    Każda operacja ma jeden zapis pierwszego dotarcia, także przy ponowieniach. Czas telefonu jest
-    deklaracją urządzenia i nie stanowi dowodu. Ujemna różnica oznacza czas przed końcem, dodatnia —
-    po końcu odpowiadania.
+    Pierwsze dotarcie każdej zmiany. Różnica „+” oznacza spóźnienie, „−” — czas przed końcem. Czas
+    telefonu jest deklarowany przez urządzenie i może być zmieniony.
   </p>
   <div class="config-grid audit-filters">
     <label class="checkbox"><input type="checkbox" bind:checked={lateOnly} />Tylko spóźnione</label>
@@ -240,8 +237,8 @@
         >{selected.excluded ? 'Przywróć' : 'Wyklucz'}: {selected.nickname} · {selected.text}</strong
       >
       <p>
-        Wyniki zostaną przeliczone. Po wykluczeniu liczy się poprzednia niewykluczona wersja, a gdy
-        jej nie ma — 0 pkt. Operacja i historia decyzji pozostaną w rejestrze.
+        Po wykluczeniu liczy się poprzednia niewykluczona wersja lub 0 pkt, jeśli jej nie ma.
+        Decyzja zostanie zapisana, a wyniki przeliczone.
       </p>
       <label>Powód decyzji<textarea bind:value={reason} maxlength="500" required></textarea></label>
       <div class="actions">

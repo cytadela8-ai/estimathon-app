@@ -44,9 +44,9 @@
 
 <div class="play-shell">
   <header class="site-header">
-    <span class="brand">estymator<span class="brand-dot">.</span></span>
+    <span class="brand"><span class="brand-mark" aria-hidden="true">≈</span>estymator</span>
     {#if $client.session}<details class="account" open={!!initialRecovery}>
-        <summary>{$client.session.participant.nickname} · Konto</summary>
+        <summary>{$client.session.participant.nickname}</summary>
         <aside class="card account-panel">
           <strong>Kod odzyskiwania</strong>
           <p>Zachowaj go na wypadek zmiany urządzenia.</p>
@@ -67,7 +67,7 @@
   <main class="play-main">
     {#if !$client.session}
       <section class="card join-card">
-        <h1>Dołącz do <em>gry.</em></h1>
+        <h1>Dołącz do gry</h1>
         <form
           onsubmit={(e) => {
             e.preventDefault();
@@ -120,17 +120,17 @@
       </section>
     {:else if phase === 'lobby'}
       <section class="waiting">
-        <h1>Za chwilę <em>zaczynamy.</em></h1>
-        <p>Poczekaj na pierwsze pytanie. Strona zaktualizuje się automatycznie.</p>
+        <h1>Czekamy na start</h1>
+        <p>Pierwsze pytanie włączy prowadzący.</p>
       </section>
     {:else if phase === 'active' || phase === 'paused'}
       <section class="question-card">
         <div class="question-meta">
           <span class="mini-label"
-            >PYTANIE
+            >Pytanie
             {(snapshot?.state.index ?? 0) + 1} / {snapshot?.totalQuestions}</span
           >
-          <span class="time-label">{phase === 'paused' ? 'PRZERWA' : 'POZOSTAŁO'} <Timer /></span>
+          <span class="time-label">{phase === 'paused' ? 'Przerwa' : ''} <Timer /></span>
         </div>
         <h1 class="question-text">{snapshot?.question?.text}</h1>
         <div class="answer-area">
@@ -151,16 +151,17 @@
           <div class="sync-status" aria-live="polite">
             <span class="live-dot" class:offline={!$client.connected || $client.pending}></span>
             {#if $client.error}{$client.error}
-            {:else if !$client.connected}Brak połączenia · zapis lokalny, oczekiwanie na
-              synchronizację
-            {:else if $client.pending && (!$client.text || invalidDraft)}Zapisano szkic lokalnie ·
-              wpisz poprawną liczbę
-            {:else if $client.pending}Zapisano lokalnie · oczekiwanie na synchronizację
+            {:else if !$client.connected}Brak połączenia. Zapisano lokalnie.
+            {:else if $client.pending && (!$client.text || invalidDraft)}Szkic zapisany lokalnie.
+              Wpisz liczbę.
+            {:else if $client.pending}Zapisano lokalnie. Synchronizacja…
             {:else if $client.text}Zapisano na serwerze
-            {:else}Odpowiedź zapisze się automatycznie{/if}
+            {:else}Zapis automatyczny{/if}
           </div>
           {#if invalidDraft}<p class="error">Wpisz dodatnią liczbę całkowitą.</p>{/if}
-          {#if $client.confirmed}<p class="confirmed-answer">
+          {#if $client.confirmed && ($client.pending || $client.confirmed !== $client.text)}<p
+              class="confirmed-answer"
+            >
               Na serwerze: <strong>{$client.confirmed}</strong>
             </p>{/if}
           {#if !$client.text && $client.confirmed}<p class="input-help">
@@ -170,16 +171,13 @@
       </section>
     {:else if phase === 'closing'}
       <section class="waiting">
-        <div class="orbit spinning">✳</div>
-        <h1>Chwila <em>prawdy.</em></h1>
-        <p>Synchronizujemy odpowiedzi i przygotowujemy wyniki.</p>
+        <div class="reveal-loader" aria-hidden="true">≈</div>
+        <h1>Koniec czasu</h1>
+        <p>Zbieramy ostatnie odpowiedzi…</p>
       </section>
     {:else}
       <section class="waiting results-card">
-        <h1>
-          {phase === 'finished' ? 'Dziękujemy za' : 'Prawidłowa'}
-          <em>{phase === 'finished' ? 'grę.' : 'odpowiedź.'}</em>
-        </h1>
+        <h1>{phase === 'finished' ? 'Wyniki końcowe' : 'Prawidłowa odpowiedź'}</h1>
         {#if phase === 'results'}<div class="correct-value">{snapshot?.correct}</div>
           <p>Twoja odpowiedź: <strong>{$client.confirmed ?? 'Brak odpowiedzi'}</strong></p>
           <p>Punkty za pytanie: <strong>{ownResult?.score ?? 0} / 1000</strong></p>
@@ -190,7 +188,6 @@
           {#if standing}
             · Miejsce: <strong>{standing.place}</strong>{/if}
         </p>
-        <small>Wyniki aktualizują się po synchronizacji odpowiedzi.</small>
       </section>
     {/if}
     {#if error}<p class="error" role="alert">{error}</p>{/if}

@@ -27,48 +27,40 @@
 
 <div class="screen-shell">
   <header class="site-header">
-    <a class="brand" href="/play"
-      ><span class="brand-icon">e<span>↗</span></span>estymator<span class="brand-dot">.</span></a
-    >
-    <div class="eyebrow">
+    <a class="brand" href="/play"><span class="brand-mark" aria-hidden="true">≈</span>estymator</a>
+    <div class="connection-status">
       <span class="live-dot" class:offline={!$client.connected}></span>{$client.connected
-        ? 'NA ŻYWO'
-        : 'PONOWNE ŁĄCZENIE'}
+        ? 'Połączono'
+        : 'Ponowne łączenie'}
     </div>
   </header>
   <main class="screen-main">
     {#if phase === 'lobby'}<div class="screen-welcome">
-        <div class="mini-label">KONKURS ESTYMACJI</div>
-        <h1>Nie wiesz?<br /><em>Oszacuj.</em></h1>
-        <p>Wejdź na <strong>{location.host}/play</strong> i dołącz do gry.</p>
-        <div class="people-pill">{s?.participantCount ?? 0} osób gotowych na wyzwanie</div>
-        <div class="decorative-number">≈</div>
+        <h1>Dołącz do gry</h1>
+        <p class="join-address">{location.host}/play</p>
+        <p class="participant-count">Dołączyło: <strong>{s?.participantCount ?? 0}</strong></p>
       </div>
     {:else if phase === 'active' || phase === 'paused'}<div class="screen-question">
         <div class="mini-label">
-          PYTANIE {questionNumber} / {s?.totalQuestions}{phase === 'paused' ? ' · PRZERWA' : ''}
+          Pytanie {questionNumber} / {s?.totalQuestions}{phase === 'paused' ? ' · Przerwa' : ''}
         </div>
         <h1>{s?.question?.text}</h1>
         <div class="screen-timer"><Timer /></div>
         <div class="screen-bottom">
           <span
             ><strong>{s?.answerCount}</strong> / {s?.participantCount} odpowiedzi zapisanych</span
-          ><span>Jak blisko potrafisz trafić? ↗</span>
+          >
         </div>
       </div>
     {:else if phase === 'closing'}<div class="screen-closing">
-        <div class="orbit spinning">✳</div>
-        <div class="mini-label">KONIEC CZASU</div>
-        <h1>Chwila prawdy<br /><em>już za moment.</em></h1>
-        <p>Synchronizujemy ostatnie odpowiedzi<span class="loading-dots">...</span></p>
+        <div class="reveal-loader" aria-hidden="true">≈</div>
+        <h1>Koniec czasu</h1>
+        <p>Zbieramy ostatnie odpowiedzi…</p>
       </div>
     {:else if phase === 'finished'}<div class="final-results">
-        <div class="mini-label">WIELKI FINAŁ · ESTYMATOR</div>
-        <h1>Najlepsze <em>wyczucie.</em></h1>
+        <h1>Wyniki końcowe</h1>
         <div class="final-stage" class:expanded={elapsed > 6000 && (s?.standings.length ?? 0) > 0}>
           {#if ranked.length}<Podium standings={ranked} />{:else}<div>
-              <div class="orbit">✳</div>
-              <p>Dziękujemy wszystkim {s?.participantCount} uczestnikom!</p>
               <p>Brak sklasyfikowanych wyników.</p>
             </div>{/if}
           {#if elapsed > 6000 && (s?.standings.length ?? 0) > 0}<div class="all-results">
@@ -85,14 +77,10 @@
         </div>
       </div>
     {:else}<div class="screen-results">
-        <div class="mini-label">PYTANIE {(s?.state.index ?? 0) + 1} · WYNIKI</div>
-        <h1>Sprawdźmy <em>wyczucie.</em></h1>
-        <p class="provisional">
-          Spóźnione synchronizacje i decyzje prowadzącego aktualizują wyniki.
-        </p>
+        <h1>Wyniki pytania {(s?.state.index ?? 0) + 1}</h1>
         <div class="reveal-grid">
           <section class="distribution">
-            <h2>Wasze odpowiedzi <span>{submitted.length} estymacji</span></h2>
+            <h2>Wasze odpowiedzi <span>{submitted.length}</span></h2>
             <div class="chart">
               {#each bins as count, i}<div
                   class="chart-column"
@@ -112,13 +100,12 @@
             {#if !submitted.length}<p>Brak przyjętych odpowiedzi.</p>{/if}
           </section>
           {#if elapsed > 3500}<section class="correct-reveal">
-              <div class="mini-label">PRAWIDŁOWA ODPOWIEDŹ</div>
+              <div class="mini-label">Prawidłowa odpowiedź</div>
               <div class="correct-value">{BigInt(s?.correct ?? '0').toLocaleString('pl-PL')}</div>
-              <span>Teraz już wiemy. ↗</span>
             </section>{/if}
         </div>
         {#if elapsed > 7000}<section class="screen-leaderboard">
-            <h2>Czołówka konkursu <span>Klasyfikacja łączna</span></h2>
+            <h2>Klasyfikacja łączna</h2>
             {#if ranked.length}<div class="top-list">
                 {#each leaderPlaces as place}
                   {@const group = ranked.filter((person) => person.place === place)}
@@ -143,9 +130,4 @@
           </section>{/if}
       </div>{/if}
   </main>
-  <footer>
-    <span>LICZY SIĘ WYCZUCIE <span class="footer-cross">✳</span></span><span
-      >{s?.totalQuestions ?? 0} PYTAŃ · JEDNA INTUICJA</span
-    >
-  </footer>
 </div>

@@ -7,7 +7,7 @@ export async function join(page: Page, contest: Driver, nickname: string): Promi
   await page.getByLabel('Nazwisko', { exact: true }).fill('Test');
   await page.getByLabel('Pseudonim', { exact: true }).fill(nickname);
   await page.getByRole('button', { name: 'Dołącz do konkursu', exact: true }).click();
-  await expect(page.getByText('Za chwilę')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Czekamy na start', exact: true })).toBeVisible();
   await expect(page.locator('a')).toHaveCount(0);
 }
 export async function host(page: Page, contest: Driver): Promise<void> {

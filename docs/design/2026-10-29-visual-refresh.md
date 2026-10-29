@@ -43,7 +43,18 @@ surface. Keep numbers, questions and state changes the focus.
 
 ## Implementation and review
 
-- [ ] Replace shared styles and font assets; update the favicon and page metadata.
-- [ ] Edit Polish copy across play, projector and host; keep actionable error and timing details.
-- [ ] Review desktop/mobile screenshots, keyboard focus, reduced motion and long-value overflow.
-- [ ] Run lint, type checks, unit/integration tests and real browser tests; commit verified changes.
+- [x] Replace shared styles and font assets; update the favicon and page metadata.
+- [x] Edit Polish copy across play, projector and host; keep actionable error and timing details.
+- [x] Review desktop/mobile screenshots, keyboard focus, reduced motion and long-value overflow.
+- [x] Run lint, type checks, unit/integration tests and real browser tests; commit verified changes.
+
+## Verification notes
+
+Reviewed real Chromium screenshots of registration, waiting, answering, closing, question results,
+final results and the host dashboard. Checked widths 320, 390, 768 and 1440 pixels, a 24-hour timer,
+a 100-digit answer, visible input/upload keyboard focus and reduced motion. Browser requests stayed
+on the local origin, including the two font subsets; no browser errors were recorded.
+
+The host loading check exposed `structuredClone` being called on a Svelte state proxy. Copying
+the question objects explicitly fixes it; the new login/reload browser test reproduced the error
+before the fix and verifies that both saved questions load afterwards.

@@ -12,7 +12,6 @@
         data-place={place}
         style={`--place:${place - 1}`}
       >
-        <span class="medal">{place === 1 ? '✳' : '↗'}</span>
         <div class="podium-names" class:many={group.length > 3}>
           <div
             class:scrolling-results={group.length > 3}
