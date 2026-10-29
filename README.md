@@ -272,14 +272,15 @@ changing tooling or accepting untrusted build configuration.
 ### Question results
 
 After each question, the projector shows separate top-five rankings for that question and the
-whole contest, including shared places. The host's question tables show all participants in
+whole contest, including shared places. The question ranking shows each participant’s submitted
+value beside their name (or **Brak odpowiedzi**). The host's question tables show all participants in
 score order with their question places, independently of the overall ranking.
 
 The answer histogram is centered on the correct answer and spans ±2M in logarithmic space.
 M is the same median absolute logarithmic error used in scoring, with a minimum of 0.05.
 Forty-eight equal-width log buckets cover the range; two additional overflow buckets retain extreme
-answers. Five numeric labels mark −2M, −M, the correct answer, +M and +2M; bar counts
-are hidden. Axis values and the center marker appear with the correct-answer reveal.
+answers. Nine vertical numeric labels mark half-M steps from −2M through the correct answer to +2M.
+Bar counts are hidden. Axis values and the center marker appear with the correct-answer reveal.
 Late answers and host reviews automatically update both rankings and the chart.
 
 ### Clear participant browser data

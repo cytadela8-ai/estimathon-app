@@ -165,7 +165,7 @@ it('ranks question scores independently of overall standings and preserves ties 
   value.state.resultsAt = 1000;
   value.results = [
     { participantId: 'a', nickname: 'Ania', answer: '100', score: 1000 },
-    { participantId: 'b', nickname: 'Bartek', answer: '100', score: 1000 },
+    { participantId: 'b', nickname: 'Bartek', answer: '101', score: 1000 },
     { participantId: 'c', nickname: 'Celina', answer: null, score: 0 },
   ];
   value.standings = [
@@ -181,5 +181,9 @@ it('ranks question scores independently of overall standings and preserves ties 
   expect(question).toContain('03');
   expect(question).not.toContain('02');
   expect(question).toContain('0 pkt');
+  expect(question).toContain('Odpowiedź: 100');
+  expect(question).toContain('Odpowiedź: 101');
+  expect(question).toContain('Brak odpowiedzi');
+  expect(overall).not.toContain('leader-answer');
   expect(overall.indexOf('Celina')).toBeLessThan(overall.indexOf('Ania'));
 });

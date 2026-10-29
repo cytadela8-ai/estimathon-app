@@ -94,15 +94,13 @@
                 </div>{/each}
               {#if elapsed > 3500}<div class="chart-center" aria-hidden="true"></div>{/if}
             </div>
-            <div class="chart-labels">
-              <span>← &lt; −2M</span><span>Skala logarytmiczna</span><span>&gt; +2M →</span>
-            </div>
             {#if elapsed > 3500}<div class="chart-axis" aria-label="Zakres odpowiedzi">
-                {#each distribution.ticks as tick, i}<span style={`--position:${i * 25}%`}
+                {#each distribution.ticks as tick, i}<span style={`--position:${i * 12.5}%`}
                     >{formatAxis(tick)}</span
                   >{/each}
               </div>
             {/if}
+            <div class="chart-labels">Skala logarytmiczna</div>
             {#if !submitted.length}<p>Brak przyjętych odpowiedzi.</p>{/if}
           </section>
           {#if elapsed > 3500}<section class="correct-reveal">

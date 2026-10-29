@@ -564,19 +564,20 @@ summary {
   margin-left: 12px;
 }
 .distribution {
+  --chart-gap: 2px;
   min-width: 0;
 }
 .chart {
   position: relative;
   height: 190px;
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(50, minmax(0, 1fr));
   align-items: end;
-  gap: 2px;
+  gap: var(--chart-gap);
   margin-top: 28px;
   border-bottom: 1px solid #ffffff60;
 }
 .chart-column {
-  flex: 1;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -594,12 +595,10 @@ summary {
   animation-delay: var(--delay);
 }
 .chart-labels {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  text-align: center;
   font-size: 20px;
   color: #c7cfef;
-  margin-top: 12px;
+  margin-top: 8px;
 }
 .correct-reveal {
   background: var(--yellow);
@@ -637,26 +636,31 @@ summary {
 }
 .chart-axis {
   position: relative;
-  height: 48px;
-  margin: 12px 2% 0;
+  height: 140px;
+  margin: 0 calc((100% + var(--chart-gap)) / 50);
   color: white;
   font-size: clamp(20px, 1.7vw, 30px);
   font-weight: 650;
 }
 .chart-axis span {
   position: absolute;
+  top: 14px;
   left: var(--position);
   transform: translateX(-50%);
+  writing-mode: vertical-rl;
+  text-orientation: sideways;
   white-space: nowrap;
 }
-.chart-axis span:first-child {
-  transform: none;
+.chart-axis span::before {
+  content: '';
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  height: 10px;
+  border-left: 1px solid #ffffff90;
 }
-.chart-axis span:nth-child(3) {
+.chart-axis span:nth-child(5) {
   color: var(--yellow);
-}
-.chart-axis span:last-child {
-  transform: translateX(-100%);
 }
 .chart-center {
   position: absolute;
@@ -774,6 +778,16 @@ summary {
 .top-list .podium-names strong {
   display: block;
   overflow-wrap: anywhere;
+}
+.top-list .podium-names strong.has-answer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+.leader-answer {
+  color: var(--pink);
+  font-weight: 500;
+  text-align: right;
 }
 /* Host surfaces prioritize filters, controls and exact audit data over presentation. */
 .admin-main {
@@ -1161,12 +1175,14 @@ td .text-button {
     gap: 4px;
   }
   .chart-axis {
-    font-size: 15px;
-    height: 30px;
+    font-size: 20px;
+    height: 110px;
+  }
+  .distribution {
+    --chart-gap: 1px;
   }
   .chart {
     height: 150px;
-    gap: 1px;
   }
   .correct-reveal .correct-value {
     font-size: 48px;

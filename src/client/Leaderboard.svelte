@@ -1,6 +1,9 @@
 <script lang="ts">
   import type { Standing } from '#est-shared/protocol';
-  let { title, standings }: { title: string; standings: Standing[] } = $props();
+  let {
+    title,
+    standings,
+  }: { title: string; standings: (Standing & { answer?: string | null })[] } = $props();
   const places = $derived([
     ...new Set(standings.filter((person) => person.place <= 5).map((person) => person.place)),
   ]);
@@ -18,7 +21,14 @@
               class:scrolling-results={group.length > 3}
               style={`--scroll-duration:${Math.max(20, group.length * 2)}s`}
             >
-              {#each group as person}<strong>{person.nickname}</strong>{/each}
+              {#each group as person}<strong class:has-answer={person.answer !== undefined}>
+                  <span>{person.nickname}</span>
+                  {#if person.answer !== undefined}<span
+                      class="leader-answer"
+                      aria-label={`Odpowiedź: ${person.answer ?? 'Brak odpowiedzi'}`}
+                      >{person.answer ?? 'Brak odpowiedzi'}</span
+                    >{/if}
+                </strong>{/each}
             </div>
           </div>
           <span

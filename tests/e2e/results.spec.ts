@@ -35,13 +35,16 @@ test('question results show their own ranking alongside the overall contest', as
     await expect(question).toBeVisible();
     await expect(question.locator('.leader-row').first()).toContainText('Bartek');
     await expect(question.locator('.leader-row').first()).toContainText('600 pkt');
+    await expect(question.getByLabel('Odpowiedź: 200', { exact: true })).toBeVisible();
+    await expect(question.getByLabel('Odpowiedź: 400', { exact: true })).toBeVisible();
+    await expect(overall.locator('.leader-answer')).toHaveCount(0);
     await expect(overall.locator('.leader-row').first()).toContainText('Ania');
     await expect(overall.locator('.leader-row').first()).toContainText('1429 pkt');
     await expect(question.locator('.leader-row').nth(1)).toContainText('429 pkt');
     await expect(overall.locator('.leader-row').nth(1)).toContainText('933 pkt');
     await expect(screen.locator('.chart-column')).toHaveCount(50);
     await expect(screen.getByLabel('Zakres odpowiedzi')).toContainText('100');
-    await expect(screen.getByLabel('Zakres odpowiedzi').locator('span')).toHaveCount(5);
+    await expect(screen.getByLabel('Zakres odpowiedzi').locator('span')).toHaveCount(9);
     await expect(screen.locator('.chart-column span')).toHaveCount(0);
     await expect(screen.getByText(/mediana błędu logarytmicznego/)).toHaveCount(0);
     const viewport = screen.viewportSize()!;
@@ -62,7 +65,7 @@ test('question results show their own ranking alongside the overall contest', as
   }
 });
 
-test('80 contestants fit the denser histogram with five readable axis labels', async ({
+test('80 contestants fit the denser histogram with nine vertical axis labels', async ({
   page,
   contest,
 }) => {
@@ -91,7 +94,36 @@ test('80 contestants fit the denser histogram with five readable axis labels', a
   await contest.command('next');
   const axis = page.getByLabel('Zakres odpowiedzi');
   await expect(axis).toBeVisible();
-  await expect(axis.locator('span')).toHaveCount(5);
+  await expect(axis.locator('span')).toHaveCount(9);
+  await expect(page.getByText(/←|−2M|\+2M/)).toHaveCount(0);
+  expect(
+    await axis
+      .locator('span')
+      .first()
+      .evaluate((node) => getComputedStyle(node).writingMode),
+  ).toBe('vertical-rl');
+  const ticks = await axis.locator('span').evaluateAll((nodes) =>
+    nodes.map((node) => {
+      const { left, width } = node.getBoundingClientRect();
+      return left + width / 2;
+    }),
+  );
+  const bars = await page.locator('.chart-column').evaluateAll((nodes) =>
+    nodes.map((node) => {
+      const { left, right } = node.getBoundingClientRect();
+      return { left, right };
+    }),
+  );
+  for (let i = 0; i < ticks.length; i++) {
+    const index = 1 + i * 6;
+    const boundary =
+      i === 0
+        ? bars[1]!.left
+        : i === 8
+          ? bars[48]!.right
+          : (bars[index - 1]!.right + bars[index]!.left) / 2;
+    expect(Math.abs(ticks[i]! - boundary)).toBeLessThanOrEqual(1);
+  }
   await expect(page.locator('.chart-column')).toHaveCount(50);
   await expect(page.locator('.chart-column span')).toHaveCount(0);
   await expect(page.locator('.distribution h2')).toHaveText('Wasze odpowiedzi 80');

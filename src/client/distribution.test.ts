@@ -7,12 +7,15 @@ describe('correct-centered answer histogram', () => {
     const result = answerDistribution(['100', '200', '400'], '100');
     expect(result.scale).toBeCloseTo(Math.log(2));
     expect(result.bins).toHaveLength(50);
-    expect(result.ticks).toHaveLength(5);
-    expect(result.ticks[2]).toBe(2);
-    expect(result.ticks[1]).toBeCloseTo(Math.log10(50));
-    expect(result.ticks[3]).toBeCloseTo(Math.log10(200));
+    expect(result.ticks).toHaveLength(9);
+    expect(result.ticks[4]).toBe(2);
+    expect(result.ticks[2]).toBeCloseTo(Math.log10(50));
+    expect(result.ticks[6]).toBeCloseTo(Math.log10(200));
     expect(result.ticks[0]).toBeCloseTo(Math.log10(25));
-    expect(result.ticks[4]).toBeCloseTo(Math.log10(400));
+    expect(result.ticks[8]).toBeCloseTo(Math.log10(400));
+    for (let i = 1; i < result.ticks.length; i++) {
+      expect(result.ticks[i]! - result.ticks[i - 1]!).toBeCloseTo(Math.log10(2) / 2);
+    }
     expect(result.bins.reduce((sum, count) => sum + count, 0)).toBe(3);
   });
   it('keeps far outliers in separate buckets without stretching a tightly grouped field', () => {
@@ -45,7 +48,7 @@ describe('correct-centered answer histogram', () => {
     expect(result.ticks.every(Number.isFinite)).toBe(true);
     const labels = result.ticks.map(formatAxis);
     expect(labels.join(' ')).not.toMatch(/Infinity|NaN/);
-    expect(labels[4]).toMatch(/e297$/);
+    expect(labels[8]).toMatch(/e297$/);
   });
   it('retains all 80 contestants across the denser buckets and overflow bins', () => {
     const answers = Array.from({ length: 80 }, (_, i) => String(i + 1));

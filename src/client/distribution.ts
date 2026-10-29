@@ -19,7 +19,7 @@ export function answerDistribution(answers: string[], correct: string) {
   return {
     scale,
     bins,
-    ticks: [-1, -0.5, 0, 0.5, 1].map(
+    ticks: Array.from({ length: 9 }, (_, index) => -1 + index / 4).map(
       (direction) => Math.log10(Number(correct)) + (direction * radius) / Math.LN10,
     ),
   };
