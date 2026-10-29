@@ -52,7 +52,7 @@
           >
         </div>
       </div>
-    {:else if phase === 'closing'}<div class="screen-closing">
+    {:else if phase === 'closing' || phase === 'finishing'}<div class="screen-closing">
         <div class="reveal-loader" aria-hidden="true">≈</div>
         <h1>Koniec czasu</h1>
         <p>Zbieramy ostatnie odpowiedzi…</p>

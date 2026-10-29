@@ -169,7 +169,7 @@
             </p>{/if}
         </div>
       </section>
-    {:else if phase === 'closing'}
+    {:else if phase === 'closing' || phase === 'finishing'}
       <section class="waiting">
         <div class="reveal-loader" aria-hidden="true">≈</div>
         <h1>Koniec czasu</h1>

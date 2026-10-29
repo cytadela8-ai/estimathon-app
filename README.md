@@ -30,7 +30,10 @@ In `/admin`, add/import questions, save the configuration, then start. Pause/res
 remaining time; **+30 seconds** extends it. The server automatically ends answering and displays a
 synchronization animation for five seconds (configurable from 1 to 60). It then reveals results.
 Only the host starts the next question. After the last question, advancing opens final results;
-the host can also finish early from a question's results. There is no automatic progression.
+the host can also finish early during answering, a pause, synchronization or question results.
+Ending during answering locks the question and waits for the configured synchronization delay
+before showing final results. Ending during synchronization keeps its existing deadline. The
+pending finish survives a server restart. There is no automatic progression.
 
 Participants remain on a minimal `/play` screen with no navigation to other views. Identity and
 recovery stay in an expandable account panel on the same page.

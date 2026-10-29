@@ -136,9 +136,17 @@ export class Contest {
     else throw new Error('Poczekaj na zamknięcie odpowiedzi.');
   }
   private finish(now: number): void {
-    if (this.state.phase !== 'results') throw new Error('Zakończ po ujawnieniu wyników pytania.');
-    this.state.phase = 'finished';
-    this.state.resultsAt = now;
+    const state = this.state;
+    if (state.phase === 'lobby') throw new Error('Konkurs nie został rozpoczęty.');
+    if (state.phase === 'finished' || state.phase === 'finishing') return;
+    if (state.phase === 'results') {
+      state.phase = 'finished';
+      state.resultsAt = now;
+      return;
+    }
+    if (state.phase !== 'closing') this.setDeadline(now);
+    state.phase = 'finishing';
+    state.remainingMs = 0;
   }
   private setDeadline(end: number): void {
     this.state.endsAt = end;
@@ -175,10 +183,13 @@ export class Contest {
       state.phase = 'closing';
       state.version++;
     }
-    if (state.phase === 'closing' && deadlineReached(state.closesAt, now)) {
+    if (
+      (state.phase === 'closing' || state.phase === 'finishing') &&
+      deadlineReached(state.closesAt, now)
+    ) {
       this.db.transaction(() => {
         this.finalize();
-        state.phase = 'results';
+        state.phase = state.phase === 'finishing' ? 'finished' : 'results';
         state.resultsAt = now;
         state.version++;
         this.persist();

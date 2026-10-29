@@ -1,5 +1,12 @@
 /** Wire types. Public results appear only after the reveal delay; delayed sync stays open. */
-export type Phase = 'lobby' | 'active' | 'paused' | 'closing' | 'results' | 'finished';
+export type Phase =
+  | 'lobby'
+  | 'active'
+  | 'paused'
+  | 'closing'
+  | 'finishing'
+  | 'results'
+  | 'finished';
 export interface Config {
   durationSeconds: number;
   revealDelaySeconds: number;

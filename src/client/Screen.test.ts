@@ -49,15 +49,18 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe('projector presentation', () => {
-  it('shows no answer distribution or correct answer during acceptance closing', () => {
-    const value = snapshot();
-    value.state.phase = 'closing';
-    const html = show(value);
-    expect(html).toContain('Zbieramy ostatnie odpowiedzi');
-    expect(html).not.toContain('Wasze odpowiedzi');
-    expect(html).not.toContain('40075');
-    expect(html).not.toContain('Ania');
-  });
+  it.each(['closing', 'finishing'] as const)(
+    'shows no answers or correct answer while %s',
+    (phase) => {
+      const value = snapshot();
+      value.state.phase = phase;
+      const html = show(value);
+      expect(html).toContain('Zbieramy ostatnie odpowiedzi');
+      expect(html).not.toContain('Wasze odpowiedzi');
+      expect(html).not.toContain('40075');
+      expect(html).not.toContain('Ania');
+    },
+  );
   it('reveals the distribution first, the answer next, and the leaderboard last', () => {
     const value = snapshot();
     expect(show(value)).toContain('Wasze odpowiedzi');

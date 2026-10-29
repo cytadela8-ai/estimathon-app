@@ -35,6 +35,7 @@
     active: 'Pytanie trwa',
     paused: 'Wstrzymano',
     closing: 'Zamykanie odpowiedzi',
+    finishing: 'Kończenie konkursu',
     results: 'Wyniki pytania',
     finished: 'Konkurs zakończony',
   };
@@ -230,7 +231,7 @@
               >{phase === 'results' ? 'Następne pytanie' : 'Zamknij pytanie'}</button
             ><button
               class="danger"
-              disabled={busy || phase !== 'results'}
+              disabled={busy || !['active', 'paused', 'closing', 'results'].includes(phase)}
               onclick={() => command('finish')}>Zakończ konkurs</button
             >
           </div>
