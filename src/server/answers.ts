@@ -41,6 +41,8 @@ export class AnswerStore {
     return this.db.transaction(() => this.commit(participantId, input, now))();
   }
   private commit(participantId: string, op: Operation, now: number): Receipt {
+    if (!this.started(op.questionId))
+      return { operationId: op.operationId, status: 'invalid', answer: null };
     const previous = this.previous(participantId, op);
     if (previous) return previous;
     const payload = operationPayload(op);
@@ -124,7 +126,6 @@ export class AnswerStore {
       .get(participantId, questionId) as Answer | undefined;
   }
   private status(op: Operation, answer: Answer | undefined): Receipt['status'] {
-    if (!this.started(op.questionId)) return 'invalid';
     if (!validNumber(op.text, this.contest.data.config.maxAnswer)) return 'invalid';
     if (op.questionId === this.contest.question?.id && this.contest.state.phase === 'paused')
       return 'paused';

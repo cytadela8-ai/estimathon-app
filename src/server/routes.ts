@@ -56,6 +56,13 @@ export function registerRoutes(app: FastifyInstance, context: Context): void {
       return { ok: true };
     },
   );
+  app.post<{ Body: { confirmed: boolean } }>('/api/admin/reset', async (request) => {
+    if (request.body?.confirmed !== true) throw new Error('Potwierdź reset konkursu.');
+    const backup = contest.reset();
+    for (const participant of sessions.list()) reconcile(participant.id);
+    changed();
+    return { backup };
+  });
   app.post<{ Body: { command: Command } }>('/api/admin/command', async (request) => {
     contest.command(request.body?.command);
     changed();

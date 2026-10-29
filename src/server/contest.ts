@@ -3,6 +3,8 @@
  */
 import type Database from 'better-sqlite3';
 import { randomUUID } from 'node:crypto';
+import { writeFileSync } from 'node:fs';
+import { basename } from 'node:path';
 import type {
   Config,
   Question,
@@ -73,6 +75,50 @@ export class Contest {
     this.data.questions = questions.map((q) => ({ ...q, id: randomUUID() }));
     this.state.version++;
     this.persist();
+  }
+  /** Back up a finished contest and return to setup without invalidating participant accounts. */
+  reset(): string {
+    if (this.state.phase !== 'finished')
+      throw new Error('Reset jest dostępny po zakończeniu konkursu.');
+    const timestamp = new Date().toISOString().replaceAll(':', '-');
+    const backup = `${this.db.name}.backup-${timestamp}-${randomUUID()}.sqlite`;
+    try {
+      writeFileSync(backup, this.db.serialize(), { flag: 'wx', mode: 0o600, flush: true });
+    } catch (error) {
+      throw new Error(
+        `Nie udało się zapisać kopii konkursu. Sprawdź miejsce i uprawnienia do katalogu bazy: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        { cause: error },
+      );
+    }
+    const data: Stored = {
+      config: this.data.config,
+      questions: this.data.questions.map((q) => ({ ...q, id: randomUUID() })),
+      state: {
+        phase: 'lobby',
+        index: -1,
+        startedAt: null,
+        endsAt: null,
+        closesAt: null,
+        remainingMs: 0,
+        resultsAt: null,
+        version: this.state.version + 1,
+      },
+    };
+    this.db.transaction(() => {
+      this.db.exec(`
+        DELETE FROM submission_reviews;
+        DELETE FROM submissions;
+        DELETE FROM operations;
+        DELETE FROM answers;
+        DELETE FROM scores;
+        DELETE FROM question_windows;
+      `);
+      this.db.prepare('UPDATE contest SET data=? WHERE id=1').run(JSON.stringify(data));
+    })();
+    this.data = data;
+    return basename(backup);
   }
   command(command: Command, now = Date.now()): void {
     this.tick(now);
