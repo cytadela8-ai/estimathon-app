@@ -24,9 +24,6 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
-    pids_limit: 128
-    mem_limit: 512m
-    cpus: 1.0
     stop_grace_period: 30s
     logging:
       driver: json-file

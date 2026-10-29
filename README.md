@@ -71,8 +71,8 @@ Socket.IO requests to port 3000. Use Vite's port for the frontend during develop
 
 Requires Docker Engine with BuildKit and Docker Compose v2 or newer. Choose one of the two
 standalone Compose files. Both build the same production image and run one Node process with
-non-root permissions, a read-only root filesystem, a health check, restart policy, bounded logs,
-and CPU/memory/PID limits. Adjust the resource limits after rehearsing your event's load.
+non-root permissions, a read-only root filesystem, a health check, restart policy, and bounded logs.
+Neither Compose file sets CPU, memory, or PID limits for the services.
 The image uses the existing frozen pnpm lockfile; only `better-sqlite3` runs its native build script.
 Build tools, development dependencies, local databases, and environment files stay out of the image.
 
