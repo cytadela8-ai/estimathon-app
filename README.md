@@ -91,27 +91,43 @@ docker compose --env-file .env.production -f docker-compose.http.yml up -d --bui
 Open `http://SERVER_LAN_IP` (include `:HTTP_PORT` if you changed the port). HTTP exposes passwords,
 session tokens, and answers to network observers; use it only on a trusted network.
 
-**HTTPS:** set `DOMAIN` to your hostname, such as `contest.example.org`, and set `ACME_EMAIL`.
-Point its public DNS A/AAAA records at the server; every advertised address must reach it.
-Allow inbound TCP ports 80 and 443 through the firewall/NAT and outbound HTTPS for certificate
-issuance and renewal. UDP 443 is optional for HTTP/3. Run:
+**HTTPS:** supply your own certificate and private key. Set these in `.env.production`:
+
+```dotenv
+DOMAIN=contest.example.org
+TLS_CERT_PATH=/absolute/path/to/fullchain.pem
+TLS_KEY_PATH=/absolute/path/to/privkey.pem
+```
+
+The certificate must cover `DOMAIN`. Use PEM files: the certificate file contains the server
+certificate followed by any intermediate certificates; the private key must match and be unencrypted.
+Both paths must already exist and be readable by Caddy's UID/GID **1000:1000**. Keep the key private,
+for example mode `0640` with group `1000`. Store these files outside the repository; Compose mounts
+them read-only, and they are never copied into the image. Missing files cause startup to fail.
+
+Resolve `DOMAIN` to the server's LAN IP with local DNS or client hosts files. Allow TCP ports 80
+and 443 on the LAN; UDP 443 is optional for HTTP/3. Public DNS, public inbound access, and Internet
+access for certificate management are unnecessary. Clients must trust your certificate's issuer;
+install your private CA's root certificate on participant and projector devices if needed. Run:
 
 ```bash
 docker compose --env-file .env.production -f docker-compose.https.yml up -d --build --wait
 docker compose --env-file .env.production -f docker-compose.https.yml logs --tail=100 caddy
 ```
 
-Open `https://YOUR_DOMAIN`. Caddy obtains and renews public certificates, redirects HTTP to HTTPS,
-and proxies both Socket.IO polling and WebSocket connections. Only Caddy publishes host ports;
-the app is on an internal network. A healthy Caddy container confirms its configuration is loaded;
-check the logs and open the HTTPS URL to confirm certificate issuance succeeded. See the
-[Caddy automatic HTTPS documentation](https://caddyserver.com/docs/automatic-https) for certificate
-requirements. Its certificate authority can require Internet access for issuance and renewal.
+Open `https://YOUR_DOMAIN`. Caddy serves the supplied certificate, redirects HTTP to HTTPS, and
+proxies both Socket.IO polling and WebSocket connections. Certificate automation and OCSP fetching
+are explicitly disabled: Caddy does not contact ACME or renew these files. See the
+[Caddy TLS documentation](https://caddyserver.com/docs/caddyfile/directives/tls) for PEM file loading.
+Only Caddy publishes host ports; the app is on an internal network.
 
-For a venue without public inbound access, provision trusted certificates in advance and adapt
-`deploy/Caddyfile` to use them with a read-only certificate mount. The bundled HTTPS setup uses
-public ACME issuance; a LAN IP or an unregistered hostname cannot obtain those certificates.
-Provisioning private or DNS-01 certificates is an operator-managed alternative.
+Manage certificate expiration and renewal yourself. After replacing the certificate or key on the
+host, recreate Caddy so file bind mounts pick up the new files, including atomically replaced files:
+
+```bash
+docker compose --env-file .env.production -f docker-compose.https.yml up -d \
+  --no-deps --force-recreate --wait caddy
+```
 
 The HTTPS file sets `TRUST_PROXY=1` so login limits use the client address supplied by the single
 trusted Caddy hop. Leave this unset for direct HTTP. Enable it only when the application listener
@@ -120,7 +136,8 @@ its container on loopback. No separate proxy or application port needs to be exp
 
 Both files use the `estymathon` Compose project and its `app-data` volume, mounted at `/app/data`.
 This contains `estymator.sqlite`, its WAL files, and automatic pre-reset backups. The HTTPS file
-also persists Caddy certificates and configuration in `caddy-data` and `caddy-config` volumes.
+also persists Caddy runtime storage and configuration in `caddy-data` and `caddy-config` volumes;
+the supplied certificate and key remain in the host files specified above.
 Use reliable local storage and keep these volumes private. Existing host `data/` files are not
 imported automatically. Run a single app container; in-memory timers, tokens, and broadcasts are
 not designed for multiple replicas sharing SQLite.
@@ -165,7 +182,7 @@ Application restarts retain participant accounts and contest state; the host mus
 To switch HTTP/HTTPS, run `down` with the old file, then `up -d --build --wait` with the new file,
 using the same environment file and project name. `down` retains volumes; **`down -v` deletes them**.
 Switching origins requires participant recovery codes because browser storage is origin-specific.
-Prepare and test certificate renewal and backups before a live contest. Docker marks failed health
+Check certificate expiration and test backups before a live contest. Docker marks failed health
 checks as unhealthy; the restart policy restarts exited processes, not merely unhealthy containers.
 
 ## Questions and rules

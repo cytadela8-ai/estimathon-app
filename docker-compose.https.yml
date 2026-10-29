@@ -1,4 +1,4 @@
-# Standalone HTTPS deployment. Only Caddy is reachable through host ports.
+# Standalone HTTPS with operator-provided certificates. Only Caddy publishes host ports.
 name: estymathon
 
 services:
@@ -41,14 +41,25 @@ services:
       app:
         condition: service_healthy
     environment:
-      DOMAIN: ${DOMAIN:?Set DOMAIN to the public hostname without a scheme or path}
-      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL for the ACME account contact}
+      DOMAIN: ${DOMAIN:?Set DOMAIN to the certificate hostname without a scheme or path}
     ports:
       - '80:80'
       - '443:443'
       - '443:443/udp'
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - type: bind
+        source: ${TLS_CERT_PATH:?Set TLS_CERT_PATH to your PEM certificate chain file}
+        target: /etc/caddy/certs/fullchain.pem
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${TLS_KEY_PATH:?Set TLS_KEY_PATH to your PEM private key file}
+        target: /etc/caddy/certs/privkey.pem
+        read_only: true
+        bind:
+          create_host_path: false
       - caddy-data:/data
       - caddy-config:/config
     networks:

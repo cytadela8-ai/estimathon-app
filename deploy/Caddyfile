@@ -1,9 +1,18 @@
-# Automatic public certificates; Caddy handles HTTP redirects and Socket.IO WebSocket upgrades.
+# Operator-provided PEM certificate and key; certificate automation and OCSP fetching are disabled.
 {
-	email {$ACME_EMAIL}
+	auto_https off
+	ocsp_stapling off
+	servers :80 {
+		protocols h1
+	}
 }
 
-{$DOMAIN} {
+http://{$DOMAIN} {
+	redir https://{$DOMAIN}{uri} 308
+}
+
+https://{$DOMAIN} {
+	tls /etc/caddy/certs/fullchain.pem /etc/caddy/certs/privkey.pem
 	encode zstd gzip
 	header Strict-Transport-Security "max-age=31536000"
 	reverse_proxy app:3000
