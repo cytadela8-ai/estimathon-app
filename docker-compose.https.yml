@@ -40,8 +40,6 @@ services:
     depends_on:
       app:
         condition: service_healthy
-    environment:
-      DOMAIN: ${DOMAIN:?Set DOMAIN to the certificate hostname without a scheme or path}
     ports:
       - '80:80'
       - '443:443'

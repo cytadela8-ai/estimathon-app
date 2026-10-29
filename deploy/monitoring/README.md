@@ -11,8 +11,9 @@ The datasource UID `prometheus` and dashboard UID `estymathon-caddy` are stable 
 by the JSON panels and operational checks. The dashboard is managed through files rather than UI edits.
 
 Queries select the `estymathon_https` server and one `subroute` handler to avoid counting
-redirects, monitoring scrapes, or multiple middleware measurements. Caddy 2.11 instruments the
-compiled HTTPS route as `subroute`, so selecting `reverse_proxy` would yield no samples.
+redirects, monitoring scrapes, or multiple middleware measurements. The HTTPS handlers are grouped
+in a `route` block to retain the `subroute` label when accepting all
+hostnames and IP addresses; selecting `reverse_proxy` would yield no samples.
 HTTP 101 responses are omitted
 from latency/throughput queries because their duration represents a WebSocket connection's lifetime.
 Percentiles use one-minute rates of classic histogram buckets. Idle windows have no percentile;

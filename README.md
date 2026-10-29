@@ -94,19 +94,22 @@ session tokens, and answers to network observers; use it only on a trusted netwo
 **HTTPS:** supply your own certificate and private key. Set these in `.env.production`:
 
 ```dotenv
-DOMAIN=contest.example.org
 TLS_CERT_PATH=/absolute/path/to/fullchain.pem
 TLS_KEY_PATH=/absolute/path/to/privkey.pem
 ```
 
-The certificate must cover `DOMAIN`. Use PEM files: the certificate file contains the server
-certificate followed by any intermediate certificates; the private key must match and be unencrypted.
+Use PEM files: the certificate file contains the server certificate followed by any intermediate
+certificates; the private key must match and be unencrypted.
 Both paths must already exist and be readable by Caddy's UID/GID **1000:1000**. Keep the key private,
 for example mode `0640` with group `1000`. Store these files outside the repository; Compose mounts
 them read-only, and they are never copied into the image. Missing files cause startup to fail.
 
-Resolve `DOMAIN` to the server's LAN IP with local DNS or client hosts files. Allow TCP ports 80
-and 443 on the LAN; UDP 443 is optional for HTTP/3. Public DNS, public inbound access, and Internet
+Use the server's LAN IP, or resolve any hostname to it with local DNS or client hosts files.
+Caddy accepts all hostnames and IP addresses; no `DOMAIN` setting is required. The certificate
+must still cover the address used by the browser: use DNS subject alternative names for hostnames
+and IP subject alternative names for IP addresses. Other addresses reach the same server but fail
+normal browser certificate validation. Allow TCP ports 80 and 443 on the LAN; UDP 443 is optional
+for HTTP/3. Public DNS, public inbound access, and Internet
 access for certificate management are unnecessary. Clients must trust your certificate's issuer;
 install your private CA's root certificate on participant and projector devices if needed. Run:
 
@@ -115,11 +118,13 @@ docker compose --env-file .env.production -f docker-compose.https.yml up -d --bu
 docker compose --env-file .env.production -f docker-compose.https.yml logs --tail=100 caddy
 ```
 
-Open `https://YOUR_DOMAIN`. Caddy serves the supplied certificate, redirects HTTP to HTTPS, and
+Open `https://SERVER_LAN_IP` or `https://YOUR_HOSTNAME`. Caddy serves the supplied certificate,
+redirects HTTP to HTTPS on the same host while preserving the path and query string, and
 proxies both Socket.IO polling and WebSocket connections. Certificate automation and OCSP fetching
 are explicitly disabled: Caddy does not contact ACME or renew these files. See the
 [Caddy TLS documentation](https://caddyserver.com/docs/caddyfile/directives/tls) for PEM file loading.
 Only Caddy publishes host ports; the app is on an internal network.
+Use one address consistently during a contest: browser sessions and drafts are stored per origin.
 
 Manage certificate expiration and renewal yourself. After replacing the certificate or key on the
 host, recreate Caddy so file bind mounts pick up the new files, including atomically replaced files:
