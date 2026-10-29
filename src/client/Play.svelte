@@ -1,5 +1,10 @@
 <script lang="ts">
-  import { now, remainingMilliseconds } from '#est-client/clock';
+  import {
+    now,
+    remainingMilliseconds,
+    CORRECT_REVEAL_MS,
+    RANKING_REVEAL_MS,
+  } from '#est-client/clock';
   import { client, edit, api, setSession, clearBrowserData } from '#est-client/sync';
   import { isPositiveInteger } from '#est-shared/protocol';
   import type { Session } from '#est-shared/protocol';
@@ -16,6 +21,9 @@
   let wipeRequested = $state(false);
   const snapshot = $derived($client.snapshot);
   const phase = $derived(snapshot?.state.phase ?? 'lobby');
+  const elapsed = $derived($now + $client.offset - (snapshot?.state.resultsAt ?? $now));
+  const correctVisible = $derived(elapsed > CORRECT_REVEAL_MS);
+  const scoresVisible = $derived(phase === 'finished' || elapsed > RANKING_REVEAL_MS);
   const editable = $derived(
     phase === 'active' && remainingMilliseconds(snapshot?.state, $now, $client.offset) > 0,
   );
@@ -195,25 +203,27 @@
             </p>{/if}
         </div>
       </section>
-    {:else if phase === 'closing' || phase === 'finishing'}
+    {:else if phase === 'closing' || phase === 'finishing' || (phase === 'results' && !correctVisible)}
       <section class="waiting">
         <div class="reveal-loader" aria-hidden="true">≈</div>
         <h1>Koniec czasu</h1>
-        <p>Zbieramy ostatnie odpowiedzi…</p>
+        <p>{phase === 'results' ? 'Za chwilę wyniki…' : 'Zbieramy ostatnie odpowiedzi…'}</p>
       </section>
     {:else}
       <section class="waiting results-card">
         <h1>{phase === 'finished' ? 'Wyniki końcowe' : 'Prawidłowa odpowiedź'}</h1>
         {#if phase === 'results'}<div class="correct-value">{snapshot?.correct}</div>
           <p>Twoja odpowiedź: <strong>{$client.confirmed ?? 'Brak odpowiedzi'}</strong></p>
-          <p>Punkty za pytanie: <strong>{ownResult?.score ?? 0} / 1000</strong></p>
+          {#if scoresVisible}<p>
+              Punkty za pytanie: <strong>{ownResult?.score ?? 0} / 1000</strong>
+            </p>{/if}
           <p>Poczekaj na kolejne pytanie.</p>
         {/if}
-        <p>
-          Łącznie: <strong>{standing?.score ?? 0} pkt</strong>
-          {#if standing}
-            · Miejsce: <strong>{standing.place}</strong>{/if}
-        </p>
+        {#if scoresVisible}<p>
+            Łącznie: <strong>{standing?.score ?? 0} pkt</strong>
+            {#if standing}
+              · Miejsce: <strong>{standing.place}</strong>{/if}
+          </p>{/if}
         {#if phase === 'finished'}<PersonalResults />{/if}
       </section>
     {/if}

@@ -1,6 +1,9 @@
 /** One browser clock drives countdowns, answer editing and projector reveal stages. */
 import { readable } from 'svelte/store';
 import type { State } from '#est-shared/protocol';
+/** Reveal offsets after resultsAt, shared by participant and projector views. */
+export const CORRECT_REVEAL_MS = 3500;
+export const RANKING_REVEAL_MS = 7000;
 export const now = readable(Date.now(), (set) => {
   set(Date.now());
   const timer = setInterval(() => set(Date.now()), 100);

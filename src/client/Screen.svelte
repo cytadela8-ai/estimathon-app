@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { now } from '#est-client/clock';
+  import { now, CORRECT_REVEAL_MS, RANKING_REVEAL_MS } from '#est-client/clock';
   import { client } from '#est-client/sync';
   import Timer from '#est-client/Timer.svelte';
   import Leaderboard from '#est-client/Leaderboard.svelte';
@@ -92,9 +92,12 @@
                 >
                   <div></div>
                 </div>{/each}
-              {#if elapsed > 3500}<div class="chart-center" aria-hidden="true"></div>{/if}
+              {#if elapsed > CORRECT_REVEAL_MS}<div
+                  class="chart-center"
+                  aria-hidden="true"
+                ></div>{/if}
             </div>
-            {#if elapsed > 3500}<div class="chart-axis" aria-label="Zakres odpowiedzi">
+            {#if elapsed > CORRECT_REVEAL_MS}<div class="chart-axis" aria-label="Zakres odpowiedzi">
                 {#each distribution.ticks as tick, i}<span style={`--position:${i * 12.5}%`}
                     >{formatAxis(tick)}</span
                   >{/each}
@@ -103,12 +106,12 @@
             <div class="chart-labels">Skala logarytmiczna</div>
             {#if !submitted.length}<p>Brak przyjętych odpowiedzi.</p>{/if}
           </section>
-          {#if elapsed > 3500}<section class="correct-reveal">
+          {#if elapsed > CORRECT_REVEAL_MS}<section class="correct-reveal">
               <div class="mini-label">Prawidłowa odpowiedź</div>
               <div class="correct-value">{BigInt(s?.correct ?? '0').toLocaleString('pl-PL')}</div>
             </section>{/if}
         </div>
-        {#if elapsed > 7000}<div class="question-leaderboards">
+        {#if elapsed > RANKING_REVEAL_MS}<div class="question-leaderboards">
             <Leaderboard title="Klasyfikacja pytania" standings={questionRanked} />
             <Leaderboard title="Klasyfikacja łączna" standings={ranked} />
           </div>{/if}
