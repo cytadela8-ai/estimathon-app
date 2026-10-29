@@ -14,6 +14,7 @@ import type {
   Result,
   Standing,
   QuestionResults,
+  ParticipantQuestionResult,
 } from '#est-shared/protocol';
 import { validNumber } from '#est-shared/protocol';
 import { competitionPlaces } from '#est-shared/ranking';
@@ -271,6 +272,25 @@ export class Contest {
       revealed: this.isRevealed(index),
       results: this.results(question.id),
     }));
+  }
+  /** Return the authenticated participant's confirmed results after the contest finishes. */
+  participantResults(participantId: string): ParticipantQuestionResult[] {
+    if (this.state.phase !== 'finished') return [];
+    const rows = this.db
+      .prepare(`SELECT w.questionId,a.text AS answer,COALESCE(s.score,0) AS score
+        FROM question_windows w
+        LEFT JOIN answers a ON a.questionId=w.questionId AND a.participantId=?
+        LEFT JOIN scores s ON s.questionId=w.questionId AND s.participantId=?`)
+      .all(participantId, participantId) as {
+      questionId: string;
+      answer: string | null;
+      score: number;
+    }[];
+    const results = new Map(rows.map((row) => [row.questionId, row]));
+    return this.data.questions.flatMap((question, index) => {
+      const row = results.get(question.id);
+      return row ? [{ ...row, number: index + 1, text: question.text }] : [];
+    });
   }
   private finalize(question = this.question): void {
     if (!question) return;

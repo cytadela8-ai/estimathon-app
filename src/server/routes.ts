@@ -25,6 +25,17 @@ export function registerRoutes(app: FastifyInstance, context: Context): void {
     return session ?? reply.code(404).send({ error: 'Nie znaleziono kodu odzyskiwania.' });
   });
   app.get('/api/state', async () => contest.snapshot());
+  app.get('/api/results', async (request, reply) => {
+    const token = request.headers.authorization?.replace(/^Bearer /, '');
+    const session = sessions.find(token);
+    if (!session) return reply.code(401).send({ error: 'Zaloguj się jako uczestnik.' });
+    if (contest.state.phase !== 'finished')
+      return reply.code(409).send({ error: 'Wyniki będą dostępne po zakończeniu konkursu.' });
+    return {
+      version: contest.state.version,
+      questions: contest.participantResults(session.participant.id),
+    };
+  });
   app.get('/api/admin/overview', async () => ({
     ...contest.data,
     snapshot: contest.snapshot(),

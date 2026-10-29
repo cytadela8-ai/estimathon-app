@@ -139,3 +139,16 @@ export interface QuestionResults {
   revealed: boolean;
   results: Result[];
 }
+
+/** Private final summary: played questions and this participant's counted answers only. */
+export interface ParticipantQuestionResult {
+  questionId: string;
+  number: number;
+  text: string;
+  answer: string | null;
+  score: number;
+}
+export interface ParticipantResults {
+  version: number;
+  questions: ParticipantQuestionResult[];
+}
