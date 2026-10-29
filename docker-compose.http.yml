@@ -1,0 +1,38 @@
+# Standalone LAN HTTP deployment. Use the same project name when switching to HTTPS.
+name: estymathon
+
+services:
+  app:
+    image: estymathon:local
+    build: .
+    init: true
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in your production environment file}
+      HOST: 0.0.0.0
+      PORT: '3000'
+      DATABASE_PATH: /app/data/estymator.sqlite
+    ports:
+      - '${HTTP_PORT:-80}:3000'
+    volumes:
+      - app-data:/app/data
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 512m
+    cpus: 1.0
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+
+volumes:
+  app-data:

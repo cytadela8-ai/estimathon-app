@@ -2,6 +2,9 @@ node_modules/
 dist/
 data/
 .env
+.env.*
+!.env.example
+!.env.production.example
 *.log
 coverage/
 .playwright-mcp/

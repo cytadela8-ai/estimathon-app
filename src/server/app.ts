@@ -16,6 +16,7 @@ interface Options {
   databasePath: string;
   password: string;
   staticPath?: string;
+  trustProxy?: boolean;
 }
 /** Create an isolated server instance; caller owns listening and graceful shutdown. */
 export async function createApp(options: Options) {
@@ -25,7 +26,12 @@ export async function createApp(options: Options) {
   const contest = new Contest(db);
   const answers = new AnswerStore(db, contest);
   const sessions = new Sessions(db);
-  const app = Fastify({ logger: process.env['NODE_ENV'] !== 'test', bodyLimit: 256_000 });
+  const app = Fastify({
+    logger: process.env['NODE_ENV'] !== 'test',
+    bodyLimit: 256_000,
+    // HTTPS Compose restricts this listener to Caddy's private network.
+    trustProxy: options.trustProxy ? (_address, hop) => hop === 0 : false,
+  });
   const io = new Server<ClientEvents, ServerEvents>(app.server, { maxHttpBufferSize: 16_384 });
   const connections = new Map<string, number>();
   let dirty = false;
@@ -62,9 +68,11 @@ export async function createApp(options: Options) {
       return reply.code(404).send({ error: 'Nie znaleziono strony.' });
     });
   }
+  app.addHook('preClose', async () => {
+    io.disconnectSockets(true);
+  });
   app.addHook('onClose', async () => {
     clearInterval(timer);
-    io.disconnectSockets();
     await new Promise<void>((r) => io.close(() => r()));
     db.close();
   });

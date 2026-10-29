@@ -1,0 +1,93 @@
+# Standalone HTTPS deployment. Only Caddy is reachable through host ports.
+name: estymathon
+
+services:
+  app:
+    image: estymathon:local
+    build: .
+    init: true
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in your production environment file}
+      HOST: 0.0.0.0
+      PORT: '3000'
+      DATABASE_PATH: /app/data/estymator.sqlite
+      TRUST_PROXY: '1'
+    volumes:
+      - app-data:/app/data
+    networks:
+      - backend
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 512m
+    cpus: 1.0
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+
+  caddy:
+    image: caddy:2.11.7-alpine@sha256:eb4d35b7452d1ab6171fbdbe8d9275b2301dad6dad92115d91e19fb9b24d510f
+    user: '1000:1000'
+    init: true
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN to the public hostname without a scheme or path}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL for the ACME account contact}
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - backend
+      - edge
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 256m
+    cpus: 0.5
+    stop_grace_period: 30s
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:2019/config/']
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+
+networks:
+  backend:
+    internal: true
+  edge:
+
+volumes:
+  app-data:
+  caddy-data:
+  caddy-config:

@@ -1,0 +1,15 @@
+# Allow only build inputs so secrets, databases, backups, and local artifacts cannot enter layers.
+**
+!package.json
+!pnpm-lock.yaml
+!.npmrc
+!index.html
+!svelte.config.js
+!vite.config.ts
+!tsconfig.json
+!tsconfig.server.json
+!src/
+!src/**
+!public/
+!public/**
+src/**/*.test.ts

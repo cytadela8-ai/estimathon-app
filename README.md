@@ -67,6 +67,107 @@ participants separate between events. Configuration freezes at contest start and
 For development, run `pnpm dev` and `pnpm dev:client` in separate terminals. Vite proxies API and
 Socket.IO requests to port 3000. Use Vite's port for the frontend during development.
 
+## Docker deployment
+
+Requires Docker Engine with BuildKit and Docker Compose v2 or newer. Choose one of the two
+standalone Compose files. Both build the same production image and run one Node process with
+non-root permissions, a read-only root filesystem, a health check, restart policy, bounded logs,
+and CPU/memory/PID limits. Adjust the resource limits after rehearsing your event's load.
+The image uses the existing frozen pnpm lockfile; only `better-sqlite3` runs its native build script.
+Build tools, development dependencies, local databases, and environment files stay out of the image.
+
+```bash
+cp .env.production.example .env.production
+chmod 600 .env.production
+# Edit .env.production: set ADMIN_PASSWORD to a unique password of at least 16 characters.
+```
+
+**HTTP:** set `HTTP_PORT` if port 80 is unavailable, then run:
+
+```bash
+docker compose --env-file .env.production -f docker-compose.http.yml up -d --build --wait
+```
+
+Open `http://SERVER_LAN_IP` (include `:HTTP_PORT` if you changed the port). HTTP exposes passwords,
+session tokens, and answers to network observers; use it only on a trusted network.
+
+**HTTPS:** set `DOMAIN` to your hostname, such as `contest.example.org`, and set `ACME_EMAIL`.
+Point its public DNS A/AAAA records at the server; every advertised address must reach it.
+Allow inbound TCP ports 80 and 443 through the firewall/NAT and outbound HTTPS for certificate
+issuance and renewal. UDP 443 is optional for HTTP/3. Run:
+
+```bash
+docker compose --env-file .env.production -f docker-compose.https.yml up -d --build --wait
+docker compose --env-file .env.production -f docker-compose.https.yml logs --tail=100 caddy
+```
+
+Open `https://YOUR_DOMAIN`. Caddy obtains and renews public certificates, redirects HTTP to HTTPS,
+and proxies both Socket.IO polling and WebSocket connections. Only Caddy publishes host ports;
+the app is on an internal network. A healthy Caddy container confirms its configuration is loaded;
+check the logs and open the HTTPS URL to confirm certificate issuance succeeded. See the
+[Caddy automatic HTTPS documentation](https://caddyserver.com/docs/automatic-https) for certificate
+requirements. Its certificate authority can require Internet access for issuance and renewal.
+
+For a venue without public inbound access, provision trusted certificates in advance and adapt
+`deploy/Caddyfile` to use them with a read-only certificate mount. The bundled HTTPS setup uses
+public ACME issuance; a LAN IP or an unregistered hostname cannot obtain those certificates.
+Provisioning private or DNS-01 certificates is an operator-managed alternative.
+
+The HTTPS file sets `TRUST_PROXY=1` so login limits use the client address supplied by the single
+trusted Caddy hop. Leave this unset for direct HTTP. Enable it only when the application listener
+is reachable exclusively through your trusted proxy. Caddy's administration endpoint stays inside
+its container on loopback. No separate proxy or application port needs to be exposed.
+
+Both files use the `estymathon` Compose project and its `app-data` volume, mounted at `/app/data`.
+This contains `estymator.sqlite`, its WAL files, and automatic pre-reset backups. The HTTPS file
+also persists Caddy certificates and configuration in `caddy-data` and `caddy-config` volumes.
+Use reliable local storage and keep these volumes private. Existing host `data/` files are not
+imported automatically. Run a single app container; in-memory timers, tokens, and broadcasts are
+not designed for multiple replicas sharing SQLite.
+
+For subsequent commands, use your chosen Compose file consistently. For HTTPS, for example:
+
+```bash
+# Status and recent logs.
+docker compose --env-file .env.production -f docker-compose.https.yml ps
+docker compose --env-file .env.production -f docker-compose.https.yml logs --tail=100 app caddy
+
+# Rebuild after updating source. Review pinned base image versions/digests for security updates.
+docker compose --env-file .env.production -f docker-compose.https.yml build --pull
+docker compose --env-file .env.production -f docker-compose.https.yml pull caddy
+docker compose --env-file .env.production -f docker-compose.https.yml up -d --wait
+
+# Stop before taking a consistent backup; copy the entire data directory, including any WAL files.
+docker compose --env-file .env.production -f docker-compose.https.yml stop app
+mkdir -m 700 backup
+docker compose --env-file .env.production -f docker-compose.https.yml cp app:/app/data/. ./backup/
+docker compose --env-file .env.production -f docker-compose.https.yml start app
+```
+
+Choose a fresh backup directory each time and store a protected copy off the server. To restore
+or import an existing contest, stop the app and use a temporary container to access its volume:
+
+```bash
+# Replace /absolute/path/to/backup with a directory containing estymator.sqlite and any WAL files.
+docker compose --env-file .env.production -f docker-compose.https.yml stop app
+docker compose --env-file .env.production -f docker-compose.https.yml run --rm --no-deps \
+  --user 0:0 --cap-add CHOWN --cap-add DAC_OVERRIDE --cap-add FOWNER \
+  -v /absolute/path/to/backup:/restore:ro app \
+  sh -c 'find /app/data -mindepth 1 -maxdepth 1 -type f -delete && \
+    cp -a /restore/. /app/data/ && chown -R node:node /app/data'
+docker compose --env-file .env.production -f docker-compose.https.yml start app
+```
+
+Restoring replaces the active contest: back it up first. To inspect a pre-reset archive instead,
+copy that archive into a fresh backup directory as `estymator.sqlite` and restore that directory.
+Application restarts retain participant accounts and contest state; the host must log in again.
+
+To switch HTTP/HTTPS, run `down` with the old file, then `up -d --build --wait` with the new file,
+using the same environment file and project name. `down` retains volumes; **`down -v` deletes them**.
+Switching origins requires participant recovery codes because browser storage is origin-specific.
+Prepare and test certificate renewal and backups before a live contest. Docker marks failed health
+checks as unhealthy; the restart policy restarts exited processes, not merely unhealthy containers.
+
 ## Questions and rules
 
 The dashboard supports editing, JSON import and JSON export. Import is staged locally; inspect it
@@ -230,7 +331,8 @@ Plain HTTP works on a LAN, including random operation IDs (`crypto.getRandomValu
 HTTPS). HTTP exposes credentials to network observers. For a real event, put a local HTTPS reverse
 proxy in front of this process and obtain a trusted certificate in advance, for example via DNS-01.
 Proxy `/socket.io/` with WebSocket upgrade support as well as normal HTTP. No certificate issuance
-or DNS service is required during the contest. HTTPS and a Service Worker are not bundled;
+or DNS service is required during the contest with pre-provisioned certificates. The Docker HTTPS
+setup above bundles Caddy; the Node process itself serves HTTP. A Service Worker is not bundled;
 reopening the app while fully offline is not guaranteed. An already loaded page retains offline edits.
 
 SQLite uses WAL, foreign keys and `synchronous=FULL`. Store its files on reliable local disk.
