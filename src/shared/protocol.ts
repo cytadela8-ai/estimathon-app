@@ -98,7 +98,7 @@ export interface ClientEvents {
   snapshot: (ack: (hello: Hello) => void) => void;
   save: (operation: Operation, ack: (receipt: Receipt) => void) => void;
 }
-export type Command = 'start' | 'pause' | 'resume' | 'next' | 'extend' | 'finish';
+export type Command = 'start' | 'pause' | 'resume' | 'next' | 'extend' | 'shorten' | 'finish';
 /** A total ordering resolves simultaneous revisions independently of arrival order. */
 export function compareOperations(a: Operation, b: Operation): number {
   if (a.revision !== b.revision) return a.revision - b.revision;

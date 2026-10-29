@@ -22,6 +22,7 @@
   let busy = $state(false);
   let tab = $state('contest');
   let resetRequested = $state(false);
+  let cleanupRequested = $state(false);
   let deleteRequested = $state<Participant | null>(null);
   let qr = $state('');
   let qrName = $state('');
@@ -100,6 +101,24 @@
       resetRequested = false;
       await load(true);
       notice = `Konkurs zresetowany. Kopia bazy: ${result.backup}`;
+    } catch (e) {
+      error = (e as Error).message;
+    } finally {
+      busy = false;
+    }
+  }
+  async function cleanupHistory() {
+    busy = true;
+    error = '';
+    notice = '';
+    try {
+      const result = await api<{ deletedSubmissions: number; deletedReviews: number }>(
+        '/api/admin/cleanup',
+        { confirmed: true },
+        token,
+      );
+      cleanupRequested = false;
+      notice = `Usunięto wpisy historii: ${result.deletedSubmissions}, decyzje: ${result.deletedReviews}.`;
     } catch (e) {
       error = (e as Error).message;
     } finally {
@@ -296,6 +315,9 @@
                 disabled={busy || !['active', 'paused'].includes(phase)}
                 onclick={() => command('extend')}>+30 sekund</button
               ><button
+                disabled={busy || !['active', 'paused'].includes(phase)}
+                onclick={() => command('shorten')}>−30 sekund</button
+              ><button
                 disabled={busy || !['active', 'paused', 'results'].includes(phase)}
                 onclick={() => command('next')}
                 >{phase === 'results' ? 'Następne pytanie' : 'Zamknij pytanie'}</button
@@ -305,6 +327,39 @@
                 onclick={() => command('finish')}>Zakończ konkurs</button
               >
             </div>
+          {/if}
+        </section>
+        <section class="card">
+          <h2>Czyszczenie historii odpowiedzi</h2>
+          <p>
+            Zachowamy 10 ostatnio otrzymanych odpowiedzi każdego uczestnika na każde pytanie oraz
+            aktualnie liczoną odpowiedź, jeśli jest starsza. Zachowamy też wykluczone odpowiedzi
+            oczekujące na ponowne wysłanie po pauzie. Wyniki i liczniki wersji pozostaną zachowane.
+            Starsze wpisy i ich decyzje zostaną trwale usunięte; nie będzie można ich przeglądać ani
+            przywracać. Potwierdzenia odbioru pozostaną, aby ponowne wysyłanie odpowiedzi było
+            bezpieczne.
+          </p>
+          {#if cleanupRequested}
+            <form
+              class="notice"
+              aria-label="Czyszczenie historii"
+              onsubmit={(event) => {
+                event.preventDefault();
+                void cleanupHistory();
+              }}
+            >
+              <strong>Trwale usunąć starszą historię odpowiedzi?</strong>
+              <div class="actions">
+                <button class="danger" disabled={busy}>Potwierdź czyszczenie</button>
+                <button type="button" disabled={busy} onclick={() => (cleanupRequested = false)}
+                  >Anuluj</button
+                >
+              </div>
+            </form>
+          {:else}
+            <button disabled={busy} onclick={() => (cleanupRequested = true)}
+              >Wyczyść historię odpowiedzi</button
+            >
           {/if}
         </section>
       {:else if tab === 'questions' && config}<section class="card">

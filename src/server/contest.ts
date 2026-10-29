@@ -139,6 +139,9 @@ export class Contest {
         case 'extend':
           this.extend(now);
           break;
+        case 'shorten':
+          this.shorten(now);
+          break;
         case 'next':
           this.next(now);
           break;
@@ -175,6 +178,13 @@ export class Contest {
     if (this.state.phase === 'paused') this.state.remainingMs += 30_000;
     else if (this.state.phase === 'active') this.setDeadline((this.state.endsAt ?? now) + 30_000);
     else throw new Error('Czas można dodać podczas pytania.');
+  }
+  private shorten(now: number): void {
+    if (this.state.phase === 'paused')
+      this.state.remainingMs = Math.max(0, this.state.remainingMs - 30_000);
+    else if (this.state.phase === 'active')
+      this.setDeadline(Math.max(now, (this.state.endsAt ?? now) - 30_000));
+    else throw new Error('Czas można odjąć podczas pytania.');
   }
   private next(now: number): void {
     if (this.state.phase === 'active' || this.state.phase === 'paused') {

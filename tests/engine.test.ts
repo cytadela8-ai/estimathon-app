@@ -257,3 +257,50 @@ describe('contest scoring', () => {
     ]);
   });
 });
+
+describe('shortening question time', () => {
+  it('persists a shortened deadline and its audit window across restart', () => {
+    const f = setup();
+    f.contest.command('shorten', 2000);
+    expect(f.contest.state.endsAt).toBe(151000);
+    expect(f.contest.state.closesAt).toBe(153000);
+    expect(f.db.prepare('SELECT endsAt FROM question_windows').get()).toEqual({ endsAt: 151000 });
+    expect(new Contest(f.db).state.endsAt).toBe(151000);
+  });
+  it('clamps an active deadline to now and waits the full reveal delay', () => {
+    const f = setup();
+    f.contest.command('shorten', 170000);
+    expect(f.contest.state.phase).toBe('closing');
+    expect(f.contest.state.endsAt).toBe(170000);
+    expect(f.contest.snapshot(171999).correct).toBeNull();
+    expect(f.contest.snapshot(172000).correct).toBe('100');
+    expect(() => f.contest.command('shorten', 172000)).toThrow();
+  });
+  it('clamps paused time to zero and closes only after resuming', () => {
+    const f = setup();
+    f.contest.command('pause', 170000);
+    f.contest.command('shorten', 180000);
+    f.contest.command('shorten', 190000);
+    expect(f.contest.state.remainingMs).toBe(0);
+    expect(new Contest(f.db).state.phase).toBe('paused');
+    f.contest.command('resume', 200000);
+    expect(f.contest.state.phase).toBe('closing');
+    expect(f.contest.state.closesAt).toBe(202000);
+  });
+  it('subtracts from paused remaining time without creating a deadline', () => {
+    const f = setup();
+    f.contest.command('pause', 11000);
+    f.contest.command('shorten', 12000);
+    expect(f.contest.state.remainingMs).toBe(140000);
+    expect(f.contest.state.endsAt).toBeNull();
+    f.contest.command('resume', 21000);
+    expect(f.contest.state.endsAt).toBe(161000);
+  });
+  it('rejects shortening before start or after the deadline', () => {
+    const f = setup();
+    expect(() => f.contest.command('shorten', 181000)).toThrow();
+    const db = openDatabase(':memory:');
+    databases.push(db);
+    expect(() => new Contest(db).command('shorten', 1000)).toThrow();
+  });
+});

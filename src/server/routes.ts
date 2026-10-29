@@ -7,6 +7,7 @@ import type { Config, Question, Command, Participant, Review } from '#est-shared
 import { adminQuery } from '#est-server/pagination';
 import { countedAnswers, questionResults } from '#est-server/admin-data';
 import { reviewHistory } from '#est-server/audit';
+import { cleanupHistory } from '#est-server/history-cleanup';
 import { registerParticipantAdmin } from '#est-server/participant-admin';
 interface Context {
   contest: Contest;
@@ -73,6 +74,10 @@ export function registerRoutes(app: FastifyInstance, context: Context): void {
       audit,
       auditPagination,
     };
+  });
+  app.post<{ Body: { confirmed: boolean } }>('/api/admin/cleanup', async (request) => {
+    if (request.body?.confirmed !== true) throw new Error('Potwierdź czyszczenie historii.');
+    return cleanupHistory(contest.db);
   });
   app.post<{ Body: Review }>('/api/admin/review', async (request) => {
     answers.review(request.body);

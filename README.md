@@ -524,3 +524,27 @@ Deletion does not ban someone from registering again. Existing database backups 
 Agents can use `GET /api/admin/overview` (`participants[].ips` is a string array) and
 `DELETE /api/admin/participants/:participantId`, both with the host bearer token. Deletion returns
 `{ ok: true }`, or HTTP 404 if the participant does not exist.
+
+### Timer adjustment and history cleanup
+
+During an active or paused question, **−30 sekund** removes 30 seconds, clamped to zero.
+An active question with less than 30 seconds remaining closes immediately and waits the full
+configured reveal delay. A paused question stays paused until resumed.
+Agents can send `POST /api/admin/command` with `{ "command": "shorten" }`.
+
+Under **Przebieg konkursu**, **Wyczyść historię odpowiedzi** opens a confirmation before permanently
+removing old submission history across all participants and questions. It retains the ten most
+recent first arrivals per participant/question (timestamp ties use descending revision, then
+operation ID), plus the currently counted answer when it is older. Groups with at most ten
+submissions are unchanged. Excluded paused submissions without a permanent receipt are also retained
+so retries cannot undo moderation. Current answers, scores, accounts, question deadlines and revision
+watermarks remain intact. Decisions for deleted submissions are removed; those submissions can
+no longer be reviewed or restored. Decisions for retained submissions remain available.
+
+Idempotency receipts in `operations` remain to prevent retries from reviving deleted/excluded
+submissions or accepting reused operation IDs with different content. Cleanup reduces the history
+queried by monitoring; it does not bound receipt storage. SQLite reuses the freed pages for later
+writes; cleanup does not shrink the database file or run a blocking `VACUUM`.
+
+The authenticated agent endpoint is `POST /api/admin/cleanup` with `{ "confirmed": true }`.
+It returns `{ deletedSubmissions, deletedReviews }`. Cleanup is transactional and safe to repeat.
