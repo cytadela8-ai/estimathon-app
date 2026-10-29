@@ -245,6 +245,28 @@ export class Contest {
     if (state.version !== previous) this.persist();
     return state.version !== previous;
   }
+  /** Remove an account and its history, then recompute the remaining field's scores. */
+  removeParticipant(id: string): boolean {
+    return this.db.transaction(() => {
+      if (!this.db.prepare('SELECT 1 FROM participants WHERE id=?').get(id)) return false;
+      for (const table of [
+        'answers',
+        'operations',
+        'submissions',
+        'submission_reviews',
+        'scores',
+        'participant_ips',
+      ]) {
+        this.db.prepare(`DELETE FROM ${table} WHERE participantId=?`).run(id);
+      }
+      this.db.prepare('DELETE FROM participants WHERE id=?').run(id);
+      this.rebuildScores();
+      this.state.version++;
+      this.persist();
+      return true;
+    })();
+  }
+
   /** Recompute revealed points atomically with a counted answer or host review. */
   answerChanged(questionId: string): void {
     const index = this.data.questions.findIndex((q) => q.id === questionId);

@@ -421,3 +421,21 @@ late synchronization or host reviews; failed loads retry automatically.
 returns `{ version, questions }`, where each personal row contains `questionId`, `number`, `text`,
 `answer` and `score`. It exposes neither other participants' answers nor correct-answer fields,
 and returns HTTP 409 before the contest finishes.
+
+### Participant moderation and IP history
+
+In `/admin`, open **Uczestnicy** to see each participant's distinct observed IP addresses.
+Addresses are recorded on registration, successful recovery, authenticated results requests,
+and authenticated Socket.IO connections. History survives restarts; addresses from before this
+feature cannot be reconstructed. IP history is available only in the authenticated admin overview.
+Direct connections ignore forwarded headers. With `TRUST_PROXY=1`, the nearest forwarded
+address is used; keep the app accessible only through the configured trusted proxy.
+
+Choose **Usuń uczestnika**, then **Potwierdź usunięcie** to permanently delete the account,
+answers, scores, submission/review history, and recorded IPs. Active sessions disconnect and the
+old token and recovery code stop working. Remaining participants' revealed scores are recalculated.
+Deletion does not ban someone from registering again. Existing database backups retain their data.
+
+Agents can use `GET /api/admin/overview` (`participants[].ips` is a string array) and
+`DELETE /api/admin/participants/:participantId`, both with the host bearer token. Deletion returns
+`{ ok: true }`, or HTTP 404 if the participant does not exist.

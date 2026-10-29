@@ -7,23 +7,28 @@ import type { Config, Question, Command, Participant, Review } from '#est-shared
 import { adminQuery } from '#est-server/pagination';
 import { countedAnswers, questionResults } from '#est-server/admin-data';
 import { reviewHistory } from '#est-server/audit';
+import { registerParticipantAdmin } from '#est-server/participant-admin';
 interface Context {
   contest: Contest;
   sessions: Sessions;
   answers: AnswerStore;
   reconcile: (participantId: string) => void;
   connections: Map<string, number>;
+  disconnect: (participantId: string) => void;
   changed: () => void;
 }
 export function registerRoutes(app: FastifyInstance, context: Context): void {
   const { contest, sessions, answers, connections, changed, reconcile } = context;
+  registerParticipantAdmin(app, context);
   app.post<{ Body: Omit<Participant, 'id'> }>('/api/session', async (request) => {
     const session = sessions.create(request.body);
+    sessions.recordIp(session.participant.id, request.ip);
     changed();
     return session;
   });
   app.post<{ Body: { code: string } }>('/api/recover', async (request, reply) => {
     const session = sessions.recover(request.body?.code);
+    if (session) sessions.recordIp(session.participant.id, request.ip);
     return session ?? reply.code(404).send({ error: 'Nie znaleziono kodu odzyskiwania.' });
   });
   app.get('/api/state', async () => contest.snapshot());
@@ -31,6 +36,7 @@ export function registerRoutes(app: FastifyInstance, context: Context): void {
     const token = request.headers.authorization?.replace(/^Bearer /, '');
     const session = sessions.find(token);
     if (!session) return reply.code(401).send({ error: 'Zaloguj się jako uczestnik.' });
+    sessions.recordIp(session.participant.id, request.ip);
     if (contest.state.phase !== 'finished')
       return reply.code(409).send({ error: 'Wyniki będą dostępne po zakończeniu konkursu.' });
     return {

@@ -42,6 +42,8 @@ export async function createApp(options: Options) {
     sessions,
     answers,
     connections,
+    trustProxy: options.trustProxy ?? false,
+    disconnect: (id: string) => io.in(id).disconnectSockets(true),
     reconcile: (id: string) => io.to(id).emit('answers', answers.snapshot(id)),
     changed: () => {
       dirty = true;

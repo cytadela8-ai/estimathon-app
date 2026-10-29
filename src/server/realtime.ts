@@ -6,6 +6,7 @@ import type { Sessions } from '#est-server/sessions';
 import type { AnswerStore } from '#est-server/answers';
 import type { ClientEvents, ServerEvents } from '#est-shared/protocol';
 interface Context {
+  trustProxy: boolean;
   contest: Contest;
   sessions: Sessions;
   answers: AnswerStore;
@@ -22,6 +23,14 @@ export function registerRealtime(
     const session = sessions.find(socket.handshake.auth['token']);
     if (socket.handshake.auth['token'] && !session)
       return next(new Error('Sesja wygasła. Odzyskaj konto kodem.'));
+    if (session) {
+      const forwarded = socket.handshake.headers['x-forwarded-for'];
+      const ip =
+        context.trustProxy && typeof forwarded === 'string'
+          ? forwarded.split(',').at(-1)!.trim()
+          : socket.handshake.address;
+      sessions.recordIp(session.participant.id, ip);
+    }
     socket.data['participantId'] = session?.participant.id;
     next();
   });

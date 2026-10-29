@@ -16,6 +16,7 @@ const adminRequests = [
   { method: 'POST', url: '/api/admin/reset', payload: { confirmed: true } },
   { method: 'POST', url: '/api/admin/review', payload: {} },
   { method: 'POST', url: '/api/admin/logout' },
+  { method: 'DELETE', url: '/api/admin/participants/test-user' },
 ] as const;
 const prefixes = [
   '/api/admin/',

@@ -17,6 +17,10 @@ export function openDatabase(path: string): Database.Database {
       id TEXT PRIMARY KEY, firstName TEXT NOT NULL, lastName TEXT NOT NULL,
       nickname TEXT NOT NULL, token TEXT UNIQUE NOT NULL, recoveryCode TEXT UNIQUE NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS participant_ips (
+      participantId TEXT NOT NULL REFERENCES participants(id), ip TEXT NOT NULL,
+      PRIMARY KEY(participantId,ip)
+    );
     CREATE TABLE IF NOT EXISTS answers (
       participantId TEXT NOT NULL REFERENCES participants(id), questionId TEXT NOT NULL,
       operationId TEXT NOT NULL, revision INTEGER NOT NULL, text TEXT NOT NULL,

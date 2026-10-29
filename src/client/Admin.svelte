@@ -1,3 +1,4 @@
+<!-- Host controls; participant IP history and account deletion require admin authentication. -->
 <script lang="ts">
   import { onMount } from 'svelte';
   import QRCode from 'qrcode';
@@ -9,7 +10,7 @@
   interface Overview {
     config: Config;
     questions: Question[];
-    participants: (Participant & { recoveryCode: string; connections: number })[];
+    participants: (Participant & { recoveryCode: string; connections: number; ips: string[] })[];
   }
   let token = $state(sessionStorage.getItem('estymator.admin') ?? '');
   let password = $state('');
@@ -21,6 +22,7 @@
   let busy = $state(false);
   let tab = $state('contest');
   let resetRequested = $state(false);
+  let deleteRequested = $state<Participant | null>(null);
   let qr = $state('');
   let qrName = $state('');
   const phase = $derived($client.snapshot?.state.phase ?? 'lobby');
@@ -98,6 +100,28 @@
       resetRequested = false;
       await load(true);
       notice = `Konkurs zresetowany. Kopia bazy: ${result.backup}`;
+    } catch (e) {
+      error = (e as Error).message;
+    } finally {
+      busy = false;
+    }
+  }
+  async function deleteParticipant() {
+    if (!deleteRequested) return;
+    busy = true;
+    error = '';
+    notice = '';
+    try {
+      await api(
+        `/api/admin/participants/${encodeURIComponent(deleteRequested.id)}`,
+        {},
+        token,
+        'DELETE',
+      );
+      deleteRequested = null;
+      qr = '';
+      await load();
+      notice = 'Uczestnik został usunięty.';
     } catch (e) {
       error = (e as Error).message;
     } finally {
@@ -367,12 +391,36 @@
       {:else if tab === 'people'}<section class="card">
           <h2>Uczestnicy i odzyskiwanie kont</h2>
           <p>Kody umożliwiają dostęp do konta. Pokazuj je wyłącznie właścicielowi konta.</p>
+          {#if deleteRequested}
+            <form
+              class="notice"
+              aria-label="Usuwanie uczestnika"
+              onsubmit={(event) => {
+                event.preventDefault();
+                void deleteParticipant();
+              }}
+            >
+              <strong>Usunąć uczestnika „{deleteRequested.nickname}”?</strong>
+              <p>
+                Konto, odpowiedzi, wyniki, historia i adresy IP zostaną trwale usunięte. Aktywne
+                połączenia zostaną rozłączone. Kod odzyskiwania przestanie działać. Punkty
+                pozostałych uczestników zostaną przeliczone.
+              </p>
+              <div class="actions">
+                <button class="danger" disabled={busy}>Potwierdź usunięcie</button>
+                <button type="button" disabled={busy} onclick={() => (deleteRequested = null)}
+                  >Anuluj</button
+                >
+              </div>
+            </form>
+          {/if}
           <div class="table-scroll">
             <table>
               <thead
                 ><tr
-                  ><th>Uczestnik</th><th>Pseudonim</th><th>Połączenie</th><th>Kod odzyskiwania</th
-                  ></tr
+                  ><th>Uczestnik</th><th>Pseudonim</th><th>Połączenie</th><th>Adresy IP</th><th
+                    >Kod odzyskiwania</th
+                  ><th>Akcje</th></tr
                 ></thead
               ><tbody
                 >{#each overview?.participants ?? [] as person}<tr
@@ -381,12 +429,20 @@
                       ></span>{person.connections
                         ? `Online (${person.connections})`
                         : 'Offline'}</td
-                    ><td
+                    ><td>
+                      {#each person.ips as ip}<div><code>{ip}</code></div>{:else}Brak danych{/each}
+                    </td><td
                       ><code>{person.recoveryCode}</code><button
                         class="text-button"
                         onclick={() => showQR(person)}>Kod QR</button
                       ></td
-                    ></tr
+                    ><td>
+                      <button
+                        class="danger"
+                        disabled={busy}
+                        onclick={() => (deleteRequested = person)}>Usuń uczestnika</button
+                      >
+                    </td></tr
                   >{/each}</tbody
               >
             </table>

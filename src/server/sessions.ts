@@ -2,6 +2,7 @@
  * Opaque persistent participant credentials; recovery codes are high-entropy bearer credentials.
  */
 import { randomBytes, randomUUID } from 'node:crypto';
+import { isIP } from 'node:net';
 import type Database from 'better-sqlite3';
 import type { Participant, Session } from '#est-shared/protocol';
 interface Row extends Participant {
@@ -45,12 +46,30 @@ export class Sessions {
       .get(code.trim()) as Row | undefined;
     return row ? toSession(row) : null;
   }
-  list(): (Participant & { recoveryCode: string })[] {
-    return this.db
+  /** Persist each distinct observed address; forwarded values must already be trusted. */
+  recordIp(participantId: string, ip: string): void {
+    if (!isIP(ip)) return;
+    this.db
+      .prepare('INSERT OR IGNORE INTO participant_ips(participantId,ip) VALUES(?,?)')
+      .run(participantId, ip);
+  }
+  list(): (Participant & { recoveryCode: string; ips: string[] })[] {
+    const addresses = new Map<string, string[]>();
+    const rows = this.db.prepare('SELECT * FROM participant_ips ORDER BY ip').all() as {
+      participantId: string;
+      ip: string;
+    }[];
+    for (const row of rows) {
+      const ips = addresses.get(row.participantId) ?? [];
+      ips.push(row.ip);
+      addresses.set(row.participantId, ips);
+    }
+    const participants = this.db
       .prepare(
         'SELECT id,firstName,lastName,nickname,recoveryCode FROM participants ORDER BY nickname',
       )
       .all() as (Participant & { recoveryCode: string })[];
+    return participants.map((person) => ({ ...person, ips: addresses.get(person.id) ?? [] }));
   }
 }
 function toSession(row: Row): Session {
