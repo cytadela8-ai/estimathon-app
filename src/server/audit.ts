@@ -1,6 +1,8 @@
 /** Host-only immutable first-arrival telemetry and append-only moderation history. */
 import type Database from 'better-sqlite3';
 import type { AuditEntry, InputTiming, Operation, Receipt } from '#est-shared/protocol';
+import { REVIEW_PREVIEW_SIZE, type AdminQuery, type Page } from '#est-shared/admin';
+import { adminQuery, pageInfo } from '#est-server/pagination';
 interface Submission extends Operation {
   participantId: string;
   receivedAt: number;
@@ -26,49 +28,84 @@ export function validTiming(timing: InputTiming | undefined): boolean {
     )
   );
 }
-/** Read each unique operation once; retries never change the recorded first arrival. */
-export function auditEntries(db: Database.Database): AuditEntry[] {
+/** Read one filtered page; only visible operations load a bounded decision preview. */
+export function auditEntries(
+  db: Database.Database,
+  query: AdminQuery = adminQuery(),
+): Page<AuditEntry> {
+  const from = `FROM submissions s JOIN participants p ON p.id=s.participantId
+    LEFT JOIN question_windows w ON w.questionId=s.questionId
+    WHERE (@questionId='' OR s.questionId=@questionId)
+    AND instr(polish_lower(p.firstName || ' ' || p.lastName || ' ' || p.nickname),@participant)>0
+    AND instr(s.text,@value)>0
+    AND (@lateOnly=0 OR s.receivedAt-w.endsAt>=@minimumMs)`;
+  const params = {
+    questionId: query.questionId,
+    participant: query.participant,
+    value: query.value,
+    lateOnly: Number(query.lateOnly),
+    minimumMs: query.minimumSeconds * 1000,
+  };
+  const { total } = db.prepare(`SELECT COUNT(*) AS total ${from}`).get(params) as { total: number };
+  const pagination = pageInfo(total, query.auditPage);
   const rows = db
     .prepare(`SELECT s.participantId,s.operationId,s.questionId,s.revision,s.text,s.receivedAt,
     s.status,s.excluded,s.timing AS timingJson,p.nickname,p.firstName,p.lastName,
-    w.endsAt AS deadlineAt,COALESCE(a.operationId=s.operationId,0) AS counted
-    FROM submissions s JOIN participants p ON p.id=s.participantId
-    LEFT JOIN question_windows w ON w.questionId=s.questionId
-    LEFT JOIN answers a ON a.participantId=s.participantId AND a.questionId=s.questionId
-    ORDER BY s.receivedAt DESC,s.operationId`)
-    .all() as Submission[];
+    w.endsAt AS deadlineAt,
+    EXISTS(SELECT 1 FROM answers a WHERE a.participantId=s.participantId
+      AND a.questionId=s.questionId AND a.operationId=s.operationId) AS counted
+    ${from} ORDER BY s.receivedAt DESC,s.operationId,s.participantId LIMIT @limit OFFSET @offset`)
+    .all({
+      ...params,
+      limit: pagination.pageSize,
+      offset: (pagination.page - 1) * pagination.pageSize,
+    }) as Submission[];
+  return { ...pagination, items: rows.map((row) => auditEntry(db, row)) };
+}
+
+/** Read a bounded page of decisions for one operation, newest page first. */
+export function reviewHistory(
+  db: Database.Database,
+  participantId: string,
+  operationId: string,
+  page: number,
+): Page<AuditEntry['reviews'][number]> {
+  const { total } = db
+    .prepare(`SELECT COUNT(*) AS total FROM submission_reviews
+    WHERE participantId=? AND operationId=?`)
+    .get(participantId, operationId) as { total: number };
+  const pagination = pageInfo(total, page, REVIEW_PREVIEW_SIZE);
   const reviews = db
-    .prepare(`SELECT participantId,operationId,excluded,reason,reviewedAt
-    FROM submission_reviews ORDER BY id`)
-    .all() as {
-    participantId: string;
-    operationId: string;
+    .prepare(`SELECT excluded,reason,reviewedAt FROM submission_reviews
+    WHERE participantId=? AND operationId=? ORDER BY id DESC LIMIT ? OFFSET ?`)
+    .all(
+      participantId,
+      operationId,
+      pagination.pageSize,
+      (pagination.page - 1) * pagination.pageSize,
+    ) as {
     excluded: number;
     reason: string;
     reviewedAt: number;
   }[];
-  const history = new Map<string, AuditEntry['reviews']>();
-  for (const review of reviews) {
-    const key = `${review.participantId}/${review.operationId}`;
-    const decisions = history.get(key) ?? [];
-    decisions.push({
-      excluded: !!review.excluded,
-      reason: review.reason,
-      reviewedAt: review.reviewedAt,
-    });
-    history.set(key, decisions);
-  }
-  return rows.map((row) => {
-    const { timingJson, ...entry } = row;
-    const timing = timingJson ? (JSON.parse(timingJson) as InputTiming) : undefined;
-    return {
-      ...entry,
-      ...(timing ? { timing } : {}),
-      excluded: !!row.excluded,
-      counted: !!row.counted,
-      serverLateMs: row.deadlineAt === null ? null : row.receivedAt - row.deadlineAt,
-      phoneLateMs: timing ? timing.inputAt - timing.endsAt : null,
-      reviews: history.get(`${row.participantId}/${row.operationId}`) ?? [],
-    };
-  });
+  return {
+    ...pagination,
+    items: reviews.reverse().map((review) => ({ ...review, excluded: !!review.excluded })),
+  };
+}
+
+function auditEntry(db: Database.Database, row: Submission): AuditEntry {
+  const { timingJson, ...entry } = row;
+  const timing = timingJson ? (JSON.parse(timingJson) as InputTiming) : undefined;
+  const history = reviewHistory(db, row.participantId, row.operationId, 1);
+  return {
+    ...entry,
+    ...(timing ? { timing } : {}),
+    excluded: !!row.excluded,
+    counted: !!row.counted,
+    serverLateMs: row.deadlineAt === null ? null : row.receivedAt - row.deadlineAt,
+    phoneLateMs: timing ? timing.inputAt - timing.endsAt : null,
+    reviewCount: history.total,
+    reviews: history.items,
+  };
 }

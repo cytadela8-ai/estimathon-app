@@ -1,20 +1,18 @@
 <script lang="ts">
-  import { competitionPlaces } from '#est-shared/ranking';
-  import { onMount } from 'svelte';
   import { api } from '#est-client/sync';
-  import { difference, filterAudit, timestamp } from '#est-client/audit-view';
-  import type { AuditEntry, QuestionResults, Standing, Participant } from '#est-shared/protocol';
+  import { difference, timestamp } from '#est-client/audit-view';
+  import Pagination from '#est-client/Pagination.svelte';
+  import ReviewHistory from '#est-client/ReviewHistory.svelte';
+  import { ADMIN_PAGE_SIZE, type AdminResults } from '#est-shared/admin';
+  import type { AuditEntry } from '#est-shared/protocol';
   let { token }: { token: string } = $props();
-  let data = $state<{
-    participants: Participant[];
-    questions: QuestionResults[];
-    standings: Standing[];
-    audit: AuditEntry[];
-  }>({
+  let data = $state<AdminResults>({
     participants: [],
     questions: [],
     standings: [],
     audit: [],
+    auditPagination: { page: 1, pageSize: ADMIN_PAGE_SIZE, total: 0 },
+    resultsPagination: { page: 1, pageSize: ADMIN_PAGE_SIZE, total: 0 },
   });
   let questionId = $state('');
   let participant = $state('');
@@ -26,9 +24,17 @@
   let reason = $state('');
   let busy = $state(false);
   let auditPage = $state(1);
-  const rows = $derived(
-    filterAudit(data.audit, { questionId, participant, value, lateOnly, minimumSeconds }),
-  );
+  let resultsPage = $state(1);
+  let loading = $state(false);
+  let refreshVersion = $state(0);
+  const filters = $derived({
+    questionId,
+    participant,
+    value,
+    lateOnly,
+    minimumSeconds: Math.max(0, minimumSeconds || 0),
+  });
+  let previousFilters = '';
   const matchingParticipants = $derived(
     new Set(
       data.participants
@@ -40,11 +46,12 @@
         .map((person) => person.id),
     ),
   );
-  const pageCount = $derived(Math.max(1, Math.ceil(rows.length / 100)));
-  const currentPage = $derived(Math.min(auditPage, pageCount));
-  const visibleRows = $derived(rows.slice((currentPage - 1) * 100, currentPage * 100));
   const questions = $derived(
-    data.questions.filter((q) => !questionId || q.question.id === questionId),
+    data.questions.filter(
+      (q) =>
+        q.results.length ||
+        (!data.resultsPagination.total && (!questionId || q.question.id === questionId)),
+    ),
   );
   const statuses = {
     accepted: 'Przyjęta',
@@ -52,18 +59,56 @@
     invalid: 'Nieprawidłowa',
     paused: 'Wstrzymana',
   };
-  async function load() {
-    try {
-      data = await api('/api/admin/results', undefined, token, 'GET');
-      error = '';
-    } catch (e) {
-      error = (e as Error).message;
+  $effect(() => {
+    const filterKey = JSON.stringify(filters);
+    if (previousFilters !== filterKey) {
+      previousFilters = filterKey;
+      auditPage = 1;
+      resultsPage = 1;
     }
-  }
-  onMount(() => {
+    const query = new URLSearchParams({
+      questionId: filters.questionId,
+      participant: filters.participant,
+      value: filters.value,
+      lateOnly: String(filters.lateOnly),
+      minimumSeconds: String(filters.minimumSeconds),
+      auditPage: String(auditPage),
+      resultsPage: String(resultsPage),
+    });
+    const auth = token;
+    void refreshVersion;
+    let active = true;
+    let pending = false;
+    async function load() {
+      if (pending) return;
+      pending = true;
+      loading = true;
+      try {
+        const response = await api<AdminResults>(
+          `/api/admin/results?${query}`,
+          undefined,
+          auth,
+          'GET',
+        );
+        if (active) {
+          data = response;
+          auditPage = response.auditPagination.page;
+          resultsPage = response.resultsPagination.page;
+          error = '';
+        }
+      } catch (e) {
+        if (active) error = (e as Error).message;
+      } finally {
+        pending = false;
+        if (active) loading = false;
+      }
+    }
     void load();
     const timer = setInterval(() => void load(), 2500);
-    return () => clearInterval(timer);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
   });
   async function review() {
     if (!selected) return;
@@ -81,7 +126,7 @@
       );
       selected = null;
       reason = '';
-      await load();
+      refreshVersion++;
     } catch (e) {
       error = (e as Error).message;
     } finally {
@@ -121,11 +166,6 @@
     <label>Uczestnik — imię, nazwisko lub pseudonim<input bind:value={participant} /></label>
   </div>
   {#each questions as q}
-    {@const ranked = competitionPlaces(
-      [...q.results].sort(
-        (a, b) => b.score - a.score || a.nickname.localeCompare(b.nickname, 'pl'),
-      ),
-    )}
     <h3>{data.questions.indexOf(q) + 1}. {q.question.text}</h3>
     <p>
       Prawidłowa odpowiedź: <strong>{q.question.correct}</strong><br />Koniec (serwer, UTC):
@@ -138,8 +178,7 @@
           ></thead
         >
         <tbody
-          >{#each ranked.filter( (result) => matchingParticipants.has(result.participantId) ) as result}<tr
-            >
+          >{#each q.results as result}<tr>
               <td>{q.revealed ? result.place : '—'}</td><td>{result.nickname}</td><td
                 >{result.answer ?? 'Brak odpowiedzi'}</td
               >
@@ -149,6 +188,12 @@
       </table>
     </div>
   {/each}
+  <Pagination
+    info={data.resultsPagination}
+    label="Strony wyników pytań"
+    disabled={loading}
+    onpage={(next) => (resultsPage = next)}
+  />
   <h2>Historia dostarczenia odpowiedzi</h2>
   <p>
     Pierwsze dotarcie każdej zmiany. Różnica „+” oznacza spóźnienie, „−” — czas przed końcem. Czas
@@ -166,7 +211,7 @@
     >
     <label>Wpisana wartość zawiera<input bind:value inputmode="numeric" /></label>
   </div>
-  <p aria-live="polite">Liczba operacji: {rows.length}</p>
+  <p aria-live="polite">Liczba operacji: {data.auditPagination.total}</p>
   <div class="table-scroll audit-table">
     <table aria-label="Historia odpowiedzi">
       <thead
@@ -178,7 +223,7 @@
         ></thead
       >
       <tbody
-        >{#each visibleRows as row}<tr
+        >{#each data.audit as row (`${row.participantId}/${row.operationId}`)}<tr
             data-operation={row.operationId}
             class:excluded={row.excluded}
           >
@@ -208,35 +253,26 @@
                   : 'Nieliczona'}
               <button
                 class="text-button"
-                disabled={busy}
+                disabled={busy || loading}
                 aria-label={`${row.excluded ? 'Przywróć' : 'Wyklucz'} odpowiedź ${row.nickname} ${row.text}`}
                 onclick={() => {
                   selected = row;
                   reason = '';
                 }}>{row.excluded ? 'Przywróć' : 'Wyklucz'}</button
               >
-              {#if row.reviews.length}<details>
-                  <summary>Historia decyzji ({row.reviews.length})</summary>
-                  {#each row.reviews as decision}<p>
-                      {timestamp(decision.reviewedAt)} ·
-                      {decision.excluded ? 'Wykluczono' : 'Przywrócono'}: {decision.reason}
-                    </p>{/each}
-                </details>{/if}
+              {#if row.reviewCount}<ReviewHistory {row} {token} />{/if}
             </td>
           </tr>{/each}</tbody
       >
     </table>
   </div>
-  {#if pageCount > 1}<nav class="actions" aria-label="Strony historii odpowiedzi">
-      <button disabled={currentPage === 1} onclick={() => (auditPage = currentPage - 1)}
-        >Poprzednie</button
-      >
-      <span>Strona {currentPage} / {pageCount} · do 100 operacji na stronie</span>
-      <button disabled={currentPage === pageCount} onclick={() => (auditPage = currentPage + 1)}
-        >Następne</button
-      >
-    </nav>{/if}
-  {#if !rows.length}<p>Brak operacji spełniających filtry.</p>{/if}
+  <Pagination
+    info={data.auditPagination}
+    label="Strony historii odpowiedzi"
+    disabled={loading}
+    onpage={(next) => (auditPage = next)}
+  />
+  {#if !data.audit.length && !loading}<p>Brak operacji spełniających filtry.</p>{/if}
   {#if selected}<form
       class="notice review-form"
       onsubmit={(e) => {

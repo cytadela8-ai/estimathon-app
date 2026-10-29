@@ -113,7 +113,7 @@ it('creates a standalone backup containing results, audit, decisions and credent
   const archivedAnswers = new AnswerStore(archivedDb, archived);
   expect(archived.data).toEqual(original);
   expect(archived.standings()[0]?.score).toBe(1000);
-  expect(archivedAnswers.audit()[0]).toMatchObject({
+  expect(archivedAnswers.audit().items[0]).toMatchObject({
     operationId: f.operation.operationId,
     text: '100',
     reviews: [{ reason: 'Verified', excluded: false, reviewedAt: 3500 }],
@@ -124,10 +124,10 @@ it('rejects old queued messages without polluting the new audit or scores', () =
   const f = setup();
   f.contest.reset();
   expect(f.answers.save(f.session.participant.id, f.operation, 4000).status).toBe('invalid');
-  expect(f.answers.audit()).toEqual([]);
+  expect(f.answers.audit().items).toEqual([]);
   f.contest.command('start', 5000);
   expect(f.answers.save(f.session.participant.id, f.operation, 6000).status).toBe('invalid');
-  expect(f.answers.audit()).toEqual([]);
+  expect(f.answers.audit().items).toEqual([]);
   expect(f.answers.all(f.session.participant.id)).toEqual([]);
   const next = { ...f.operation, questionId: f.contest.question!.id, operationId: randomUUID() };
   expect(f.answers.save(f.session.participant.id, next, 7000).status).toBe('accepted');
@@ -188,7 +188,7 @@ it('rolls back all deletions if the database reset fails', () => {
   expect(() => f.contest.reset()).toThrow('Reset interrupted');
   expect(f.contest.data).toEqual(before);
   expect(f.answers.all(f.session.participant.id)[0]?.text).toBe('100');
-  expect(f.answers.audit()[0]?.reviews).toHaveLength(1);
+  expect(f.answers.audit().items[0]?.reviews).toHaveLength(1);
   f.db.exec('DROP TRIGGER stop_reset');
   expect(new Contest(f.db).state.phase).toBe('finished');
 });

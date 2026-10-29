@@ -8,6 +8,9 @@ export function openDatabase(path: string): Database.Database {
   db.pragma('journal_mode = WAL');
   db.pragma('synchronous = FULL');
   db.pragma('foreign_keys = ON');
+  db.function('polish_lower', { deterministic: true }, (value) =>
+    String(value).toLocaleLowerCase('pl'),
+  );
   db.exec(`
     CREATE TABLE IF NOT EXISTS contest (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS participants (
@@ -33,6 +36,11 @@ export function openDatabase(path: string): Database.Database {
       PRIMARY KEY(participantId, operationId)
     );
     CREATE INDEX IF NOT EXISTS submissions_question ON submissions(questionId, participantId);
+    CREATE INDEX IF NOT EXISTS submissions_arrival
+      ON submissions(receivedAt DESC,operationId,participantId);
+    CREATE INDEX IF NOT EXISTS answers_arrival
+      ON answers(acceptedAt DESC,operationId,participantId,questionId);
+    CREATE INDEX IF NOT EXISTS answers_question ON answers(questionId,participantId);
     INSERT OR IGNORE INTO submissions
       (participantId,operationId,questionId,revision,text,receivedAt,eligible,status)
       SELECT participantId,operationId,questionId,revision,text,acceptedAt,1,'accepted' FROM answers;
@@ -44,6 +52,8 @@ export function openDatabase(path: string): Database.Database {
       participantId TEXT NOT NULL, questionId TEXT NOT NULL, score REAL,
       PRIMARY KEY(participantId, questionId)
     );
+    CREATE INDEX IF NOT EXISTS reviews_operation
+      ON submission_reviews(participantId,operationId,id DESC);
   `);
   return db;
 }

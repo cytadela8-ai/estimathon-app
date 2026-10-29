@@ -1,16 +1,10 @@
 /** Durable answer ledger with indefinite delayed delivery and reversible host exclusions. */
 import type Database from 'better-sqlite3';
-import type {
-  Operation,
-  Answer,
-  Receipt,
-  Review,
-  AuditEntry,
-  AnswerState,
-} from '#est-shared/protocol';
+import type { Operation, Answer, Receipt, Review, AnswerState } from '#est-shared/protocol';
 import { compareOperations, validNumber } from '#est-shared/protocol';
 import { auditEntries, validTiming } from '#est-server/audit';
 import type { Contest } from '#est-server/contest';
+import type { AdminQuery } from '#est-shared/admin';
 export class AnswerStore {
   constructor(
     readonly db: Database.Database,
@@ -32,8 +26,8 @@ export class AnswerStore {
       revisions: Object.fromEntries(revisions.map((row) => [row.questionId, row.revision])),
     };
   }
-  audit(): AuditEntry[] {
-    return auditEntries(this.db);
+  audit(query?: AdminQuery) {
+    return auditEntries(this.db, query);
   }
   save(participantId: string, input: Operation, now = Date.now()): Receipt {
     this.contest.tick(now);

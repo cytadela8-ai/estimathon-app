@@ -4,12 +4,12 @@
   import { api, client } from '#est-client/sync';
   import Timer from '#est-client/Timer.svelte';
   import Results from '#est-client/Results.svelte';
-  import type { Config, Question, Participant, Answer, Command } from '#est-shared/protocol';
+  import Answers from '#est-client/Answers.svelte';
+  import type { Config, Question, Participant, Command } from '#est-shared/protocol';
   interface Overview {
     config: Config;
     questions: Question[];
     participants: (Participant & { recoveryCode: string; connections: number })[];
-    answers: Answer[];
   }
   let token = $state(sessionStorage.getItem('estymator.admin') ?? '');
   let password = $state('');
@@ -394,26 +394,11 @@
           {#if !overview?.participants.length}<p>Nikt jeszcze nie dołączył.</p>{/if}
         </section>
       {:else if tab === 'results'}<Results {token} />
-      {:else if tab === 'answers'}<section class="card">
-          <h2>Przyjęte odpowiedzi</h2>
-          <div class="table-scroll">
-            <table>
-              <thead
-                ><tr><th>Uczestnik</th><th>Pytanie</th><th>Odpowiedź</th><th>Wersja</th></tr></thead
-              ><tbody
-                >{#each overview?.answers ?? [] as answer}<tr
-                    ><td
-                      >{overview?.participants.find((p) => p.id === answer.participantId)
-                        ?.nickname}</td
-                    ><td
-                      >{(overview?.questions.findIndex((q) => q.id === answer.questionId) ?? -1) +
-                        1}</td
-                    ><td>{answer.text}</td><td>{answer.revision}</td></tr
-                  >{/each}</tbody
-              >
-            </table>
-          </div>
-        </section>{/if}
+      {:else if tab === 'answers'}<Answers
+          {token}
+          participants={overview?.participants ?? []}
+          questions={overview?.questions ?? []}
+        />{/if}
     {/if}
     {#if error}<div class="error notice" role="alert">{error}</div>{/if}{#if notice}<div
         class="notice"

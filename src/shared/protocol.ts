@@ -131,13 +131,14 @@ export interface AuditEntry extends Operation {
   status: Receipt['status'];
   excluded: boolean;
   counted: boolean;
+  reviewCount: number;
   reviews: { excluded: boolean; reason: string; reviewedAt: number }[];
 }
 export interface QuestionResults {
   question: Question;
   deadlineAt: number | null;
   revealed: boolean;
-  results: Result[];
+  results: (Result & { place: number })[];
 }
 
 /** Private final summary: played questions and this participant's counted answers only. */

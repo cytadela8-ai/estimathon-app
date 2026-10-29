@@ -4,6 +4,9 @@ import type { Contest } from '#est-server/contest';
 import type { AnswerStore } from '#est-server/answers';
 import type { Sessions } from '#est-server/sessions';
 import type { Config, Question, Command, Participant, Review } from '#est-shared/protocol';
+import { adminQuery } from '#est-server/pagination';
+import { countedAnswers, questionResults } from '#est-server/admin-data';
+import { reviewHistory } from '#est-server/audit';
 interface Context {
   contest: Contest;
   sessions: Sessions;
@@ -14,7 +17,6 @@ interface Context {
 }
 export function registerRoutes(app: FastifyInstance, context: Context): void {
   const { contest, sessions, answers, connections, changed, reconcile } = context;
-  const db = contest.db;
   app.post<{ Body: Omit<Participant, 'id'> }>('/api/session', async (request) => {
     const session = sessions.create(request.body);
     changed();
@@ -38,21 +40,34 @@ export function registerRoutes(app: FastifyInstance, context: Context): void {
   });
   app.get('/api/admin/overview', async () => ({
     ...contest.data,
-    snapshot: contest.snapshot(),
     participants: sessions.list().map((p) => ({ ...p, connections: connections.get(p.id) ?? 0 })),
-    answers: db.prepare('SELECT * FROM answers').all(),
   }));
-  app.get('/api/admin/results', async () => ({
-    participants: sessions.list().map((p) => ({
-      id: p.id,
-      firstName: p.firstName,
-      lastName: p.lastName,
-      nickname: p.nickname,
-    })),
-    questions: contest.questionResults(),
-    standings: contest.standings(),
-    audit: answers.audit(),
-  }));
+  app.get<{ Querystring: Record<string, unknown> }>('/api/admin/answers', async (request) =>
+    countedAnswers(contest, adminQuery(request.query)),
+  );
+  app.get<{
+    Params: { participantId: string; operationId: string };
+    Querystring: Record<string, unknown>;
+  }>('/api/admin/reviews/:participantId/:operationId', async (request) => {
+    const { participantId, operationId } = request.params;
+    return reviewHistory(contest.db, participantId, operationId, adminQuery(request.query).page);
+  });
+  app.get<{ Querystring: Record<string, unknown> }>('/api/admin/results', async (request) => {
+    const query = adminQuery(request.query);
+    const { items: audit, ...auditPagination } = answers.audit(query);
+    return {
+      participants: sessions.list().map((p) => ({
+        id: p.id,
+        firstName: p.firstName,
+        lastName: p.lastName,
+        nickname: p.nickname,
+      })),
+      ...questionResults(contest, query),
+      standings: contest.standings(),
+      audit,
+      auditPagination,
+    };
+  });
   app.post<{ Body: Review }>('/api/admin/review', async (request) => {
     answers.review(request.body);
     reconcile(request.body.participantId);

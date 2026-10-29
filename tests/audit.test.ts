@@ -40,12 +40,12 @@ it('counts a delayed answer after reveal and preserves its first arrival under r
   expect(f.store.save(f.ids[0]!, op, 62000).status).toBe('accepted');
   expect(f.contest.snapshot(62000).results[0]?.score).toBe(1000);
   expect(f.store.save(f.ids[0]!, op, 999999).status).toBe('accepted');
-  const audit = f.store.audit()[0]!;
+  const audit = f.store.audit().items[0]!;
   expect(audit.receivedAt).toBe(62000);
   expect(audit.serverLateMs).toBe(60000);
   expect(audit.phoneLateMs).toBe(-500);
   expect(audit.timing?.inputAt).toBe(1400);
-  expect(f.store.audit()).toHaveLength(1);
+  expect(f.store.audit().items).toHaveLength(1);
 });
 it('accepts an old question after advancing and after finishing, recomputing totals', () => {
   const f = setup();
@@ -90,9 +90,9 @@ it('excludes a suspicious operation, falls back to the previous revision, and re
     11000,
   );
   expect(f.contest.snapshot(11000).results[0]?.score).toBe(1000);
-  expect(f.store.audit().find((a) => a.operationId === latest.operationId)?.reviews).toHaveLength(
-    2,
-  );
+  expect(
+    f.store.audit().items.find((a) => a.operationId === latest.operationId)?.reviews,
+  ).toHaveLength(2);
   const restart = new Contest(f.db);
   expect(restart.snapshot(11000).results[0]?.score).toBe(1000);
 });
@@ -125,7 +125,7 @@ it('keeps pause arrival timing and rejects payload changes when the operation is
   f.contest.command('resume', 1700);
   expect(f.store.save(f.ids[0]!, { ...op, text: '999' }, 1800).status).toBe('invalid');
   expect(f.store.save(f.ids[0]!, op, 1900).status).toBe('accepted');
-  expect(f.store.audit()[0]?.receivedAt).toBe(1600);
+  expect(f.store.audit().items[0]?.receivedAt).toBe(1600);
 });
 it('recalculates the entire median field and rejects malformed telemetry without losing answers', () => {
   const f = setup();

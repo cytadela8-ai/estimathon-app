@@ -121,7 +121,11 @@ Open **Wyniki i monitoring** in `/admin` for cumulative standings, every questio
 counted answers and points, and a history of unique submission operations. Question and participant
 filters narrow the view. The arrival history also supports filtering by entered answer text and a
 minimum server arrival delay, initially **3 seconds**. Untick **Tylko spóźnione** to include on-time
-operations. The table displays at most 100 operations per page without truncating the history.
+operations. Counted answers, question result rows and submission operations use server-side pages
+of at most **100 rows**. Filters apply to the entire matching dataset before pagination. Changing
+a filter returns to page one; automatic refreshes retain the current page. The overview fetches
+configuration and participants without including answer records or the public results snapshot.
+The **Odpowiedzi** tab fetches counted answers only while it is open.
 
 For each operation, the host can inspect:
 
@@ -131,7 +135,7 @@ For each operation, the host can inspect:
 - Phone-reported input time, its locally estimated deadline, their signed difference, and the
   phone's estimated server clock offset at input. These values persist with the original edit.
 - Accepted/stale/invalid/paused status, whether the operation is counted or excluded, and the
-  timestamped history of host decisions with reasons.
+  timestamped host decisions with reasons, paged in groups of 20 when the history is expanded.
 
 **Phone timing is untrusted telemetry, not proof of when an answer was entered.** Missing phone
 metadata is shown as **Brak danych**. Old accepted answers remain preserved when opening an
@@ -147,6 +151,19 @@ cannot undo exclusion. Rankings update automatically, so displayed results remai
 All monitoring and review endpoints require host authentication. Agents can use the same atomic
 HTTP operations as the dashboard: `GET /api/admin/results` and `POST /api/admin/review` with
 `{ participantId, operationId, excluded, reason }` and the host bearer token.
+
+`GET /api/admin/answers?page=1` returns `{ items, page, pageSize, total }` for counted answers.
+`GET /api/admin/results` accepts `auditPage` and `resultsPage` (both default to 1), plus `questionId`,
+`participant` (name or nickname), `value` (literal substring), `lateOnly=true|false` and
+`minimumSeconds` (nonnegative server delay). `value`, `lateOnly` and `minimumSeconds` filter the
+submission history; question and participant filters also apply to question results. The response
+contains `auditPagination` and `resultsPagination` with `{ page, pageSize, total }`, alongside the
+bounded `audit` array and `questions[].results` arrays (at most 100 result rows across all questions).
+Ranks are calculated before filtering or pagination. Page sizes are fixed on the server; invalid
+page numbers return HTTP 400, and pages beyond the end resolve to the last available page.
+`GET /api/admin/reviews/:participantId/:operationId?page=1` returns a decision-history page of at
+most 20 entries. Monitoring includes only the latest 20 decisions for each visible operation;
+expanding its history fetches older decisions on demand.
 
 ## Synchronization protocol
 

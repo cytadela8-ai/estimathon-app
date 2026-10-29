@@ -259,8 +259,8 @@ export class Contest {
       (index === this.state.index && ['results', 'finished'].includes(this.state.phase))
     );
   }
-  /** Return all host-only question results, including zero-point missing submissions. */
-  questionResults(): QuestionResults[] {
+  /** Return host question metadata without loading participant answers. */
+  questionSummaries(): Omit<QuestionResults, 'results'>[] {
     return this.data.questions.map((question, index) => ({
       question,
       deadlineAt:
@@ -270,7 +270,6 @@ export class Contest {
             .get(question.id) as { endsAt: number | null } | undefined
         )?.endsAt ?? null,
       revealed: this.isRevealed(index),
-      results: this.results(question.id),
     }));
   }
   /** Return the authenticated participant's confirmed results after the contest finishes. */
